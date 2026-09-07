@@ -18,9 +18,11 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -49,6 +51,8 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val region by viewModel.watchRegion.collectAsStateWithLifecycle()
     val blockedCountries by viewModel.blockedCountries.collectAsStateWithLifecycle()
     val upcomingPages by viewModel.upcomingPagesPerType.collectAsStateWithLifecycle()
+    val preferredGenreIds by viewModel.preferredGenreIds.collectAsStateWithLifecycle()
+    val genreOptions by viewModel.genreOptions.collectAsStateWithLifecycle()
     val pendingRefresh by viewModel.pendingRefresh.collectAsStateWithLifecycle()
     var countrySearch by remember { mutableStateOf("") }
     var expandedContinents by remember { mutableStateOf(setOf<String>()) }
@@ -126,6 +130,30 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                     label = { Text("ISO country code, e.g. US, GB, MD") },
                     singleLine = true,
                     modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
+                )
+
+                Text("Preferred Genres", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+                Text(
+                    if (preferredGenreIds.isEmpty()) {
+                        "No genre filter set - Home and Just Dropped show everything. Pick genres to only show those."
+                    } else {
+                        "Only titles matching a selected genre show on Home and Just Dropped."
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (preferredGenreIds.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = viewModel::clearGenrePreference,
+                        modifier = Modifier.padding(top = 8.dp)
+                    ) { Text("Clear genre filter") }
+                }
+                SettingsWrapChips(
+                    modifier = Modifier.padding(top = 8.dp),
+                    items = genreOptions,
+                    isSelected = { preferredGenreIds.containsAll(it.ids) },
+                    label = { it.label },
+                    onClick = viewModel::toggleGenre
                 )
 
                 Text("Releasing Soon lookahead", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
@@ -240,6 +268,43 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
 
             item {
                 androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 32.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun <T> SettingsWrapChips(
+    items: List<T>,
+    isSelected: (T) -> Boolean,
+    label: (T) -> String,
+    onClick: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val rows = mutableListOf<MutableList<T>>()
+    var currentLen = 0
+    var currentRow = mutableListOf<T>()
+    items.forEach { item ->
+        val len = label(item).length
+        if (currentLen + len > 28 && currentRow.isNotEmpty()) {
+            rows.add(currentRow)
+            currentRow = mutableListOf()
+            currentLen = 0
+        }
+        currentRow.add(item)
+        currentLen += len
+    }
+    if (currentRow.isNotEmpty()) rows.add(currentRow)
+
+    androidx.compose.foundation.layout.Column(
+        modifier = modifier,
+        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+    ) {
+        rows.forEach { row ->
+            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                row.forEach { item ->
+                    FilterChip(selected = isSelected(item), onClick = { onClick(item) }, label = { Text(label(item)) })
+                }
             }
         }
     }

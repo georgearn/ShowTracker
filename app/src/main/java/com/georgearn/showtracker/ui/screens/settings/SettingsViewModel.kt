@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.georgearn.showtracker.data.local.ContentRefreshBus
 import com.georgearn.showtracker.data.local.ThemeMode
 import com.georgearn.showtracker.data.local.UserPrefs
+import com.georgearn.showtracker.data.repository.MediaRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -13,10 +14,13 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class GenreToggleOption(val label: String, val ids: Set<Int>)
+
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val userPrefs: UserPrefs,
-    private val refreshBus: ContentRefreshBus
+    private val refreshBus: ContentRefreshBus,
+    private val repository: MediaRepository
 ) : ViewModel() {
 
     val themeMode: StateFlow<ThemeMode> = userPrefs.themeMode
@@ -34,9 +38,24 @@ class SettingsViewModel @Inject constructor(
     val upcomingPagesPerType: StateFlow<Int> = userPrefs.upcomingPagesPerType
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPrefs.DEFAULT_UPCOMING_PAGES)
 
+    val preferredGenreIds: StateFlow<Set<Int>> = userPrefs.preferredGenreIds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    private val _genreOptions = MutableStateFlow<List<GenreToggleOption>>(emptyList())
+    val genreOptions: StateFlow<List<GenreToggleOption>> = _genreOptions
+
     /** True right after a country toggle, until the user taps Refresh - nudges them that content is stale. */
     private val _pendingRefresh = MutableStateFlow(false)
     val pendingRefresh: StateFlow<Boolean> = _pendingRefresh
+
+    init {
+        viewModelScope.launch {
+            _genreOptions.value = repository.genreNames().entries
+                .groupBy({ it.value }, { it.key })
+                .map { (label, ids) -> GenreToggleOption(label, ids.toSet()) }
+                .sortedBy { it.label }
+        }
+    }
 
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { userPrefs.setThemeMode(mode) }
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { userPrefs.setDynamicColorEnabled(enabled) }
@@ -54,6 +73,18 @@ class SettingsViewModel @Inject constructor(
 
     fun setUpcomingPagesPerType(pages: Int) = viewModelScope.launch {
         userPrefs.setUpcomingPagesPerType(pages)
+        _pendingRefresh.value = true
+    }
+
+    fun toggleGenre(option: GenreToggleOption) = viewModelScope.launch {
+        val current = preferredGenreIds.value
+        val next = if (current.containsAll(option.ids)) current - option.ids else current + option.ids
+        userPrefs.setPreferredGenreIds(next)
+        _pendingRefresh.value = true
+    }
+
+    fun clearGenrePreference() = viewModelScope.launch {
+        userPrefs.setPreferredGenreIds(emptySet())
         _pendingRefresh.value = true
     }
 }

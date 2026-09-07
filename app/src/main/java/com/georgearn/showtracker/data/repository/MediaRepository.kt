@@ -60,11 +60,13 @@ class MediaRepository @Inject constructor(
 
     suspend fun trending(): List<MediaSummary> {
         val blocked = userPrefs.blockedCountries.first()
+        val preferredGenres = userPrefs.preferredGenreIds.first()
         return tmdbApi.trendingWeek().results
             .filter { it.mediaType == "movie" || it.mediaType == "tv" }
             .map { it.toSummary() }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
+            .filterByPreferredGenres(preferredGenres)
     }
 
     /**
@@ -75,11 +77,13 @@ class MediaRepository @Inject constructor(
         val today = DateUtils.todayIso()
         val since = DateUtils.isoDaysAgo(windowDays)
         val blocked = userPrefs.blockedCountries.first()
+        val preferredGenres = userPrefs.preferredGenreIds.first()
         val movies = tmdbApi.discoverMovieReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.MOVIE) }
         val tv = tmdbApi.discoverTvReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.TV) }
         val combined = (movies + tv).sortedByDescending { it.releaseDate }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
+            .filterByPreferredGenres(preferredGenres)
         val rated = enrichWithOmdbRatings(combined.take(ratingsCap))
         return rated + combined.drop(ratingsCap)
     }
@@ -93,6 +97,7 @@ class MediaRepository @Inject constructor(
         val pages = pagesPerType ?: userPrefs.upcomingPagesPerType.first()
         val today = DateUtils.todayIso()
         val blocked = userPrefs.blockedCountries.first()
+        val preferredGenres = userPrefs.preferredGenreIds.first()
         val movies = coroutineScope {
             (1..pages).map { page -> async { tmdbApi.discoverMovieUpcoming(gte = today, page = page).results } }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.MOVIE) }
@@ -102,6 +107,13 @@ class MediaRepository @Inject constructor(
         return (movies + tv).sortedBy { it.releaseDate }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
+            .filterByPreferredGenres(preferredGenres)
+    }
+
+    /** Onboarding genre picks act as a hard filter when set - consistent across every passive feed. */
+    private fun List<MediaSummary>.filterByPreferredGenres(preferred: Set<Int>): List<MediaSummary> {
+        if (preferred.isEmpty()) return this
+        return filter { item -> item.genreIds.any { it in preferred } }
     }
 
     private fun List<MediaSummary>.filterNotBlocked(blocked: Set<String>): List<MediaSummary> {
