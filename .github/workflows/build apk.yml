@@ -43,12 +43,21 @@ jobs:
           name: ShowTracker-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
+      - name: Check for release signing secrets
+        id: keystore_check
+        run: |
+          if [ -n "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Decode release keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: steps.keystore_check.outputs.present == 'true'
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "${{ runner.temp }}/androidrelease.jks"
 
       - name: Build signed release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: steps.keystore_check.outputs.present == 'true'
         env:
           RELEASE_KEYSTORE_PATH: ${{ runner.temp }}/androidrelease.jks
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -56,7 +65,7 @@ jobs:
         run: gradle assembleRelease --no-daemon
 
       - name: Upload release APK
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: steps.keystore_check.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ShowTracker-release-apk
