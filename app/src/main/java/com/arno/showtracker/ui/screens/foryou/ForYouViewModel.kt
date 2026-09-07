@@ -53,6 +53,22 @@ class ForYouViewModel @Inject constructor(
         }
     }
 
+    /** Skips the quiz entirely: random mood, random media type, shuffled queue. */
+    fun startFullyRandom() {
+        viewModelScope.launch {
+            val mood = SuggestionMood.entries.random()
+            val type = QuizType.entries.random()
+            val queue = repository.suggestionQueue(mood, type.mediaType)
+            _state.value = _state.value.copy(
+                stage = RecStage.SWIPE,
+                mood = mood,
+                quizType = type,
+                queue = queue,
+                index = 0
+            )
+        }
+    }
+
     fun reshuffle() {
         viewModelScope.launch {
             val queue = repository.suggestionQueue(_state.value.mood, _state.value.quizType.mediaType)

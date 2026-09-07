@@ -52,7 +52,8 @@ fun NotificationsScreen(
                 title = { Text("Notifications") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
-                }
+                },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
             )
         }
     ) { padding ->

@@ -161,11 +161,15 @@ private fun HomeContent(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(data.justDropped, key = { "d${it.tmdbId}" }) { item ->
+                        val scoreCaption = listOfNotNull(
+                            item.imdbRating?.let { "IMDb ${it.removeSuffix("/10")}" },
+                            item.rottenTomatoesScore?.let { "RT $it" }
+                        ).joinToString(" · ").ifBlank { null }
                         PosterOverlayCard(
                             item = item,
                             isOn = savedIds.contains(item.tmdbId),
                             overlayIcon = OverlayIcon.ADD,
-                            caption = null,
+                            caption = scoreCaption,
                             onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
                             onOverlayClick = { onToggleWatchlist(item) }
                         )

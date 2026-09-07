@@ -3,6 +3,7 @@ package com.arno.showtracker.data.local
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +15,14 @@ private val Context.dataStore by preferencesDataStore(name = "show_tracker_prefs
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Country origin filter: common blocklist candidates, shown as toggles in Settings. */
+enum class OriginCountry(val code: String, val displayName: String) {
+    TURKEY("TR", "Turkey"),
+    CHINA("CN", "China"),
+    RUSSIA("RU", "Russia"),
+    UKRAINE("UA", "Ukraine")
+}
+
 @Singleton
 class UserPrefs @Inject constructor(private val context: Context) {
 
@@ -21,6 +30,16 @@ class UserPrefs @Inject constructor(private val context: Context) {
         val THEME_MODE = stringPreferencesKey("theme_mode")
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color") // Monet on/off
         val WATCH_REGION = stringPreferencesKey("watch_region")    // ISO country for JustWatch/TMDB providers
+        val BLOCKED_COUNTRIES = stringSetPreferencesKey("blocked_origin_countries") // ISO country codes to hide
+    }
+
+    val blockedCountries: Flow<Set<String>> = context.dataStore.data.map { it[Keys.BLOCKED_COUNTRIES] ?: emptySet() }
+
+    suspend fun setCountryBlocked(code: String, blocked: Boolean) {
+        context.dataStore.edit { prefs ->
+            val current = prefs[Keys.BLOCKED_COUNTRIES] ?: emptySet()
+            prefs[Keys.BLOCKED_COUNTRIES] = if (blocked) current + code else current - code
+        }
     }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->

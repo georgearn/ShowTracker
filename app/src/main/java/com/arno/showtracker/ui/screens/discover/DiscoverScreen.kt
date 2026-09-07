@@ -11,18 +11,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -43,13 +49,30 @@ fun DiscoverScreen(
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
         Text("Discover", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 20.dp, bottom = 12.dp))
 
-        OutlinedTextField(
+        TextField(
             value = query,
             onValueChange = viewModel::onQueryChange,
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-            label = { Text("Search titles") },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { viewModel.onQueryChange("") }) {
+                        Icon(Icons.Default.Close, contentDescription = "Clear search")
+                    }
+                }
+            },
+            placeholder = { Text("Search movies & series") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth()
+            shape = RoundedCornerShape(28.dp),
+            colors = TextFieldDefaults.colors(
+                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(elevation = 1.dp, shape = RoundedCornerShape(28.dp))
+                .clip(RoundedCornerShape(28.dp))
         )
 
         Row(

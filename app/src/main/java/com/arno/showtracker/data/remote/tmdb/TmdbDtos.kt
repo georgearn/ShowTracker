@@ -19,7 +19,8 @@ data class TmdbMultiResult(
     @Json(name = "release_date") val releaseDate: String? = null,      // movie
     @Json(name = "first_air_date") val firstAirDate: String? = null,   // tv
     val overview: String? = null,
-    @Json(name = "vote_average") val voteAverage: Double? = null
+    @Json(name = "vote_average") val voteAverage: Double? = null,
+    @Json(name = "origin_country") val originCountry: List<String>? = null // tv only; movie lists don't carry this
 ) {
     val resolvedTitle: String get() = title ?: name ?: "Untitled"
     val resolvedDate: String? get() = releaseDate ?: firstAirDate

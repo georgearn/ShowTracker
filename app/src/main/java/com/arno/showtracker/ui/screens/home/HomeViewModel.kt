@@ -50,7 +50,7 @@ class HomeViewModel @Inject constructor(
             _state.value = UiState.Loading
             try {
                 val upcoming = repository.upcoming()
-                val dropped = repository.recentlyReleased().take(9)
+                val dropped = repository.recentlyReleased(limit = 9)
                 _state.value = UiState.Success(HomeData(upcoming, dropped))
             } catch (t: Throwable) {
                 _state.value = UiState.Error(t.message ?: "Couldn't load. Check your connection.")

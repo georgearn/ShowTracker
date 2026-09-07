@@ -25,7 +25,11 @@ class SettingsViewModel @Inject constructor(
     val watchRegion: StateFlow<String> = userPrefs.watchRegion
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "US")
 
+    val blockedCountries: StateFlow<Set<String>> = userPrefs.blockedCountries
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     fun setThemeMode(mode: ThemeMode) = viewModelScope.launch { userPrefs.setThemeMode(mode) }
     fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { userPrefs.setDynamicColorEnabled(enabled) }
     fun setWatchRegion(region: String) = viewModelScope.launch { userPrefs.setWatchRegion(region) }
+    fun setCountryBlocked(code: String, blocked: Boolean) = viewModelScope.launch { userPrefs.setCountryBlocked(code, blocked) }
 }

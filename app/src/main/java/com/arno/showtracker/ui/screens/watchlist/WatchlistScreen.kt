@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,11 +51,24 @@ fun WatchlistScreen(
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
             Text("My Watchlist", style = MaterialTheme.typography.headlineSmall)
-            val count = state.readyToWatch.size + state.waitingOnRelease.size + state.watched.size
+            val count = state.readyToWatch.count + state.waitingOnRelease.count + state.watched.count
             Text("$count saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
-        if (state.readyToWatch.isEmpty() && state.waitingOnRelease.isEmpty() && state.watched.isEmpty()) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            WatchlistOrganization.entries.forEach { org ->
+                FilterChip(
+                    selected = state.organization == org,
+                    onClick = { viewModel.setOrganization(org) },
+                    label = { Text(org.label) }
+                )
+            }
+        }
+
+        if (state.readyToWatch.count == 0 && state.waitingOnRelease.count == 0 && state.watched.count == 0) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     "Nothing saved yet. Add titles from Home or Discover.",
@@ -63,33 +78,51 @@ fun WatchlistScreen(
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                item { SectionHeader("Ready to watch", state.readyToWatch.size) }
-                items(state.readyToWatch, key = { "r${it.tmdbId}" }) { item ->
-                    WatchlistRow(item, onOpenDetail, viewModel)
-                }
-                item { SectionHeader("Waiting on release", state.waitingOnRelease.size) }
-                items(state.waitingOnRelease, key = { "w${it.tmdbId}" }) { item ->
-                    WatchlistRow(item, onOpenDetail, viewModel)
-                }
-                item { SectionHeader("Already watched", state.watched.size) }
-                items(state.watched, key = { "d${it.tmdbId}" }) { item ->
-                    WatchlistRow(item, onOpenDetail, viewModel)
-                }
+                section("r", state.readyToWatch, onOpenDetail, viewModel)
+                section("w", state.waitingOnRelease, onOpenDetail, viewModel)
+                section("d", state.watched, onOpenDetail, viewModel)
             }
+        }
+    }
+}
+
+private fun LazyListScope.section(
+    keyPrefix: String,
+    section: WatchlistSection,
+    onOpenDetail: (Int, String) -> Unit,
+    viewModel: WatchlistViewModel
+) {
+    if (section.count == 0) return
+    item { SectionHeader(section.title, section.count) }
+    section.groups.forEach { group ->
+        if (group.title != null) {
+            item { GroupHeader(group.title) }
+        }
+        items(group.items, key = { "$keyPrefix${it.tmdbId}" }) { item ->
+            WatchlistRow(item, onOpenDetail, viewModel)
         }
     }
 }
 
 @Composable
 private fun SectionHeader(title: String, count: Int) {
-    if (count == 0) return
     Text(
         text = "$title ($count)",
         style = MaterialTheme.typography.titleMedium,
         modifier = Modifier.padding(vertical = 4.dp)
+    )
+}
+
+@Composable
+private fun GroupHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
     )
 }
 

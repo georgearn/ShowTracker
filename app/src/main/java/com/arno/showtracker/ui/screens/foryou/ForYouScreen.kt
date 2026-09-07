@@ -87,6 +87,9 @@ private fun QuizStage(state: ForYouState, viewModel: ForYouViewModel) {
         Button(onClick = viewModel::startRecs, modifier = Modifier.fillMaxWidth()) {
             Text("Get My Picks")
         }
+        OutlinedButton(onClick = viewModel::startFullyRandom, modifier = Modifier.fillMaxWidth()) {
+            Text("Surprise Me (Full Random)")
+        }
     }
 }
 

@@ -8,7 +8,10 @@ data class MediaSummary(
     val posterPath: String?,
     val releaseDate: String?, // yyyy-MM-dd, blank/null if TBA
     val overview: String,
-    val tmdbVoteAverage: Double
+    val tmdbVoteAverage: Double,
+    val originCountries: List<String> = emptyList(), // ISO country codes, when the source list provides them
+    val imdbRating: String? = null,       // e.g. "7.4/10", filled in only where callers enrich it
+    val rottenTomatoesScore: String? = null // e.g. "88%", filled in only where callers enrich it
 )
 
 /** Full detail screen payload: TMDB detail + watch providers + OMDb (IMDb/RT) ratings merged. */

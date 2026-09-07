@@ -15,6 +15,8 @@ import com.arno.showtracker.data.remote.tmdb.TmdbDetailResponse
 import com.arno.showtracker.data.remote.tmdb.TmdbMultiResult
 import com.arno.showtracker.di.ApiConstants
 import com.arno.showtracker.util.DateUtils
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -32,30 +34,64 @@ class MediaRepository @Inject constructor(
 
     suspend fun search(query: String): List<MediaSummary> {
         if (query.isBlank()) return emptyList()
+        val blocked = userPrefs.blockedCountries.first()
         return tmdbApi.searchMulti(query).results
             .filter { it.mediaType == "movie" || it.mediaType == "tv" }
             .map { it.toSummary() }
+            .filterNotBlocked(blocked)
     }
 
-    suspend fun trending(): List<MediaSummary> =
-        tmdbApi.trendingWeek().results
+    suspend fun trending(): List<MediaSummary> {
+        val blocked = userPrefs.blockedCountries.first()
+        return tmdbApi.trendingWeek().results
             .filter { it.mediaType == "movie" || it.mediaType == "tv" }
             .map { it.toSummary() }
+            .filterNotBlocked(blocked)
+    }
 
-    /** Home feed: recently released titles across movies + tv, newest first. */
-    suspend fun recentlyReleased(): List<MediaSummary> {
+    /** Home feed: recently released titles across movies + tv, newest first, with IMDb/RT scores merged in. */
+    suspend fun recentlyReleased(limit: Int = 9): List<MediaSummary> {
         val today = DateUtils.todayIso()
+        val blocked = userPrefs.blockedCountries.first()
         val movies = tmdbApi.discoverMovieReleased(lte = today).results.map { it.toSummary(MediaType.MOVIE) }
         val tv = tmdbApi.discoverTvReleased(lte = today).results.map { it.toSummary(MediaType.TV) }
-        return (movies + tv).sortedByDescending { it.releaseDate }
+        val combined = (movies + tv).sortedByDescending { it.releaseDate }.filterNotBlocked(blocked).take(limit)
+        return enrichWithOmdbRatings(combined)
     }
 
     /** Upcoming feed: titles not out yet, soonest first - the "set a notification" pool. */
     suspend fun upcoming(): List<MediaSummary> {
         val today = DateUtils.todayIso()
+        val blocked = userPrefs.blockedCountries.first()
         val movies = tmdbApi.discoverMovieUpcoming(gte = today).results.map { it.toSummary(MediaType.MOVIE) }
         val tv = tmdbApi.discoverTvUpcoming(gte = today).results.map { it.toSummary(MediaType.TV) }
-        return (movies + tv).sortedBy { it.releaseDate }
+        return (movies + tv).sortedBy { it.releaseDate }.filterNotBlocked(blocked)
+    }
+
+    private fun List<MediaSummary>.filterNotBlocked(blocked: Set<String>): List<MediaSummary> {
+        if (blocked.isEmpty()) return this
+        return filter { item -> item.originCountries.none { it in blocked } }
+    }
+
+    /** Looks up IMDb rating + Rotten Tomatoes score per title via OMDb, in parallel, best-effort. */
+    private suspend fun enrichWithOmdbRatings(items: List<MediaSummary>): List<MediaSummary> {
+        if (BuildConfig.OMDB_API_KEY.isBlank()) return items
+        return coroutineScope {
+            items.map { item ->
+                async {
+                    val year = item.releaseDate?.take(4)
+                    val omdb = runCatching { omdbApi.byTitle(item.title, year, BuildConfig.OMDB_API_KEY) }.getOrNull()
+                    if (omdb == null || omdb.Response == "False") {
+                        item
+                    } else {
+                        item.copy(
+                            imdbRating = omdb.imdbRating?.takeIf { it != "N/A" }?.let { "$it/10" },
+                            rottenTomatoesScore = omdb.Ratings?.firstOrNull { it.Source == "Rotten Tomatoes" }?.Value
+                        )
+                    }
+                }
+            }.map { it.await() }
+        }
     }
 
     // ---------- Detail (TMDB + OMDb merge) ----------
@@ -221,7 +257,8 @@ fun TmdbMultiResult.toSummary(forcedType: MediaType? = null): MediaSummary = Med
     posterPath = posterPath,
     releaseDate = resolvedDate,
     overview = overview.orEmpty(),
-    tmdbVoteAverage = voteAverage ?: 0.0
+    tmdbVoteAverage = voteAverage ?: 0.0,
+    originCountries = originCountry.orEmpty()
 )
 
 fun imageUrl(path: String?, size: String = "w500"): String? =

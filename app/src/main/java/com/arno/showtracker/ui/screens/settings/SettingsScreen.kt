@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.arno.showtracker.data.local.OriginCountry
 import com.arno.showtracker.data.local.ThemeMode
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,6 +37,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val dynamicColor by viewModel.dynamicColorEnabled.collectAsStateWithLifecycle()
     val region by viewModel.watchRegion.collectAsStateWithLifecycle()
+    val blockedCountries by viewModel.blockedCountries.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -40,7 +45,8 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
-                }
+                },
+                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
             )
         }
     ) { padding ->
@@ -56,6 +62,16 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(selected = themeMode == mode, onClick = { viewModel.setThemeMode(mode) })
+                Icon(
+                    imageVector = when (mode) {
+                        ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                        ThemeMode.LIGHT -> Icons.Default.LightMode
+                        ThemeMode.DARK -> Icons.Default.DarkMode
+                    },
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 8.dp)
+                )
                 Text(
                     when (mode) {
                         ThemeMode.SYSTEM -> "Follow system"
@@ -95,6 +111,25 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
             singleLine = true,
             modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
         )
+
+        Text("Content Filters", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+        Text(
+            "Hide series/movies originating from these countries across Home, Discover and search",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        OriginCountry.entries.forEach { country ->
+            Row(
+                Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(country.displayName, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = blockedCountries.contains(country.code),
+                    onCheckedChange = { viewModel.setCountryBlocked(country.code, it) }
+                )
+            }
+        }
     }
     }
 }

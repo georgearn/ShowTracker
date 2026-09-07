@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -103,17 +104,17 @@ fun PosterOverlayCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(6.dp)
-                    .size(26.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
-                    .background(if (isOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.scrim.copy(alpha = 0.55f))
+                    .background(if (isOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.scrim.copy(alpha = 0.75f))
             ) {
                 val (icon, tint) = when (overlayIcon) {
                     OverlayIcon.ADD -> (if (isOn) Icons.Default.Check else Icons.Default.Add) to
-                        (if (isOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.surface)
+                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color.White)
                     OverlayIcon.NOTIFY -> (if (isOn) Icons.Default.NotificationsActive else Icons.Default.NotificationsNone) to
-                        (if (isOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.surface)
+                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color.White)
                 }
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
             }
             if (caption != null) {
                 Text(
