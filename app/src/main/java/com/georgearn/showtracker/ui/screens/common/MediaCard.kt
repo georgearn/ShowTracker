@@ -18,7 +18,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsNone
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -117,8 +116,10 @@ fun PosterOverlayCard(
                 }
             }
             // Outside the clipped poster Box so the badge can poke past its rounded corner instead of being cut off.
-            IconButton(
-                onClick = onOverlayClick,
+            // Plain clickable Box (not IconButton) - IconButton silently pads to a 48dp min touch
+            // target regardless of an explicit .size(), which was overflowing further than expected
+            // and getting clipped by the first row of scrolling grids/rows above it.
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 6.dp, y = (-6).dp)
@@ -126,6 +127,8 @@ fun PosterOverlayCard(
                     .clip(CircleShape)
                     .background(if (isOn) MaterialTheme.colorScheme.primary else Color(0xFFD8D8D8))
                     .then(if (!isOn) Modifier.border(1.dp, Color.White, CircleShape) else Modifier)
+                    .clickable(onClick = onOverlayClick),
+                contentAlignment = Alignment.Center
             ) {
                 val (icon, tint) = when (overlayIcon) {
                     OverlayIcon.ADD -> (if (isOn) Icons.Default.Check else Icons.Default.Add) to

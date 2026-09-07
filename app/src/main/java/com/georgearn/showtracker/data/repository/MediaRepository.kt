@@ -270,7 +270,9 @@ class MediaRepository @Inject constructor(
         length: LengthPref = LengthPref.ANY,
         genreOverride: Set<String>? = null
     ): List<WatchlistEntity> {
-        val all = watchlistDao.observeAll().first().filter { !it.watched }
+        val all = watchlistDao.observeAll().first().filter {
+            !it.watched && DateUtils.releaseStatus(it.releaseDate) == com.georgearn.showtracker.data.model.ReleaseStatus.RELEASED
+        }
         val genres = if (!genreOverride.isNullOrEmpty()) genreOverride else mood.genres
         var filtered = all
         if (type != null) filtered = filtered.filter { it.mediaType == type.apiValue }
