@@ -3,8 +3,8 @@
     android:viewportWidth="512" android:viewportHeight="512">
     <!-- Bell + film reel + calendar glyph, scaled toward center to stay inside the adaptive-icon safe zone -->
     <group
-        android:scaleX="0.72"
-        android:scaleY="0.72"
+        android:scaleX="0.5"
+        android:scaleY="0.5"
         android:pivotX="256"
         android:pivotY="256"
         android:translateX="0"
