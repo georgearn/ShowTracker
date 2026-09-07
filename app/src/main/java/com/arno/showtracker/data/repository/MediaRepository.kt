@@ -1,6 +1,7 @@
 package com.arno.showtracker.data.repository
 
 import com.arno.showtracker.BuildConfig
+import com.arno.showtracker.data.local.Countries
 import com.arno.showtracker.data.local.UserPrefs
 import com.arno.showtracker.data.local.WatchlistDao
 import com.arno.showtracker.data.local.WatchlistEntity
@@ -89,7 +90,13 @@ class MediaRepository @Inject constructor(
 
     private fun List<MediaSummary>.filterNotBlocked(blocked: Set<String>): List<MediaSummary> {
         if (blocked.isEmpty()) return this
-        return filter { item -> item.originCountries.none { it in blocked } }
+        val blockedLanguages = Countries.languagesFor(blocked)
+        return filter { item ->
+            val blockedByCountry = item.originCountries.any { it in blocked }
+            // Movie list results don't carry origin_country from TMDB - fall back to original_language.
+            val blockedByLanguage = item.originCountries.isEmpty() && item.originalLanguage in blockedLanguages
+            !blockedByCountry && !blockedByLanguage
+        }
     }
 
     /** Looks up IMDb rating + Rotten Tomatoes score per title via OMDb, in parallel, best-effort. */
@@ -311,6 +318,7 @@ fun TmdbMultiResult.toSummary(forcedType: MediaType? = null): MediaSummary = Med
     overview = overview.orEmpty(),
     tmdbVoteAverage = voteAverage ?: 0.0,
     originCountries = originCountry.orEmpty(),
+    originalLanguage = originalLanguage,
     genreIds = genreIds.orEmpty()
 )
 

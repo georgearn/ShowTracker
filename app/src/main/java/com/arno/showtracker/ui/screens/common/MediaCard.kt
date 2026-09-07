@@ -106,12 +106,12 @@ fun PosterOverlayCard(
                     Text(
                         text = caption,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.surface,
+                        color = Color.White,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(6.dp)
                             .clip(RoundedCornerShape(20.dp))
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f))
+                            .background(Color.Black.copy(alpha = 0.65f))
                             .padding(horizontal = 7.dp, vertical = 3.dp)
                     )
                 }

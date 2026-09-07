@@ -9,7 +9,8 @@ data class MediaSummary(
     val releaseDate: String?, // yyyy-MM-dd, blank/null if TBA
     val overview: String,
     val tmdbVoteAverage: Double,
-    val originCountries: List<String> = emptyList(), // ISO country codes, when the source list provides them
+    val originCountries: List<String> = emptyList(), // ISO country codes, when the source list provides them (tv only)
+    val originalLanguage: String? = null, // ISO 639-1, present on both movie and tv - used to filter movies by likely origin
     val genreIds: List<Int> = emptyList(),
     val imdbRating: String? = null,       // e.g. "7.4/10", filled in only where callers enrich it
     val rottenTomatoesScore: String? = null // e.g. "88%", filled in only where callers enrich it

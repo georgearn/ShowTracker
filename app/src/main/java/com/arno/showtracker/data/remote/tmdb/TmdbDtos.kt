@@ -21,6 +21,7 @@ data class TmdbMultiResult(
     val overview: String? = null,
     @Json(name = "vote_average") val voteAverage: Double? = null,
     @Json(name = "origin_country") val originCountry: List<String>? = null, // tv only; movie lists don't carry this
+    @Json(name = "original_language") val originalLanguage: String? = null, // ISO 639-1, present on both movie and tv
     @Json(name = "genre_ids") val genreIds: List<Int>? = null
 ) {
     val resolvedTitle: String get() = title ?: name ?: "Untitled"
