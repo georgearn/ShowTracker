@@ -62,6 +62,7 @@ class MediaRepository @Inject constructor(
             .filter { it.mediaType == "movie" || it.mediaType == "tv" }
             .map { it.toSummary() }
             .filterNotBlocked(blocked)
+            .filter { hasReadableTitle(it.title) }
     }
 
     /**
@@ -74,18 +75,30 @@ class MediaRepository @Inject constructor(
         val blocked = userPrefs.blockedCountries.first()
         val movies = tmdbApi.discoverMovieReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.MOVIE) }
         val tv = tmdbApi.discoverTvReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.TV) }
-        val combined = (movies + tv).sortedByDescending { it.releaseDate }.filterNotBlocked(blocked)
+        val combined = (movies + tv).sortedByDescending { it.releaseDate }
+            .filterNotBlocked(blocked)
+            .filter { hasReadableTitle(it.title) }
         val rated = enrichWithOmdbRatings(combined.take(ratingsCap))
         return rated + combined.drop(ratingsCap)
     }
 
-    /** Upcoming feed: titles not out yet, soonest first - the "set a notification" pool. */
-    suspend fun upcoming(): List<MediaSummary> {
+    /**
+     * Upcoming feed: titles not out yet, soonest first - the "set a notification" pool and the
+     * source for the "Releasing Soon" time-window sections. Fetches a few pages per media type
+     * since near-term releases alone can fill page 1, otherwise nothing further out ever shows.
+     */
+    suspend fun upcoming(pagesPerType: Int = 3): List<MediaSummary> {
         val today = DateUtils.todayIso()
         val blocked = userPrefs.blockedCountries.first()
-        val movies = tmdbApi.discoverMovieUpcoming(gte = today).results.map { it.toSummary(MediaType.MOVIE) }
-        val tv = tmdbApi.discoverTvUpcoming(gte = today).results.map { it.toSummary(MediaType.TV) }
-        return (movies + tv).sortedBy { it.releaseDate }.filterNotBlocked(blocked)
+        val movies = (1..pagesPerType).flatMap { page ->
+            tmdbApi.discoverMovieUpcoming(gte = today, page = page).results
+        }.map { it.toSummary(MediaType.MOVIE) }
+        val tv = (1..pagesPerType).flatMap { page ->
+            tmdbApi.discoverTvUpcoming(gte = today, page = page).results
+        }.map { it.toSummary(MediaType.TV) }
+        return (movies + tv).sortedBy { it.releaseDate }
+            .filterNotBlocked(blocked)
+            .filter { hasReadableTitle(it.title) }
     }
 
     private fun List<MediaSummary>.filterNotBlocked(blocked: Set<String>): List<MediaSummary> {
@@ -98,6 +111,9 @@ class MediaRepository @Inject constructor(
             !blockedByCountry && !blockedByLanguage
         }
     }
+
+    /** Drops titles TMDB has no English translation for (falls back to a non-Latin original title). */
+    private fun hasReadableTitle(title: String): Boolean = title.any { it in 'a'..'z' || it in 'A'..'Z' }
 
     /** Looks up IMDb rating + Rotten Tomatoes score per title via OMDb, in parallel, best-effort. */
     private suspend fun enrichWithOmdbRatings(items: List<MediaSummary>): List<MediaSummary> {

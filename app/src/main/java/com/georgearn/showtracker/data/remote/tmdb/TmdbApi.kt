@@ -11,11 +11,12 @@ interface TmdbApi {
     suspend fun searchMulti(
         @Query("query") query: String,
         @Query("include_adult") includeAdult: Boolean = false,
+        @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbSearchResponse
 
     @GET("trending/all/week")
-    suspend fun trendingWeek(): TmdbSearchResponse
+    suspend fun trendingWeek(@Query("language") language: String = "en-US"): TmdbSearchResponse
 
     /** "New releases" style feed: already-released titles, most recent first. */
     @GET("discover/movie")
@@ -24,6 +25,7 @@ interface TmdbApi {
         @Query("primary_release_date.lte") lte: String,
         @Query("primary_release_date.gte") gte: String? = null,
         @Query("vote_count.gte") minVotes: Int = 5,
+        @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse
 
@@ -33,6 +35,7 @@ interface TmdbApi {
         @Query("first_air_date.lte") lte: String,
         @Query("first_air_date.gte") gte: String? = null,
         @Query("vote_count.gte") minVotes: Int = 5,
+        @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse
 
@@ -41,6 +44,7 @@ interface TmdbApi {
     suspend fun discoverMovieUpcoming(
         @Query("sort_by") sortBy: String = "primary_release_date.asc",
         @Query("primary_release_date.gte") gte: String,
+        @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse
 
@@ -48,6 +52,7 @@ interface TmdbApi {
     suspend fun discoverTvUpcoming(
         @Query("sort_by") sortBy: String = "first_air_date.asc",
         @Query("first_air_date.gte") gte: String,
+        @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse
 
