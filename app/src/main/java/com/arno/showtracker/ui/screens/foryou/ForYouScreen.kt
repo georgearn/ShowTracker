@@ -17,8 +17,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,6 +40,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.arno.showtracker.data.local.WatchlistEntity
 import com.arno.showtracker.data.model.ReleaseStatus
+import com.arno.showtracker.data.repository.LengthPref
 import com.arno.showtracker.data.repository.SuggestionMood
 import com.arno.showtracker.data.repository.imageUrl
 import com.arno.showtracker.ui.screens.common.ScoreRow
@@ -65,30 +69,48 @@ fun ForYouScreen(
 @Composable
 private fun QuizStage(state: ForYouState, viewModel: ForYouViewModel) {
     Column(
-        Modifier.fillMaxSize().padding(top = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Column {
-            Text("Mood", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 8.dp))
+        QuizQuestionCard(title = "Mood") {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MoodOption("Anything", SuggestionMood.ANYTHING, state.mood, viewModel::setMood)
                 MoodOption("Light", SuggestionMood.LIGHT, state.mood, viewModel::setMood)
                 MoodOption("Intense", SuggestionMood.INTENSE, state.mood, viewModel::setMood)
             }
         }
-        Column {
-            Text("Movie or series?", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 8.dp))
+        QuizQuestionCard(title = "Movie or series?") {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 QuizType.entries.forEach { t ->
                     FilterChip(selected = state.quizType == t, onClick = { viewModel.setQuizType(t) }, label = { Text(t.label) })
                 }
             }
         }
-        Button(onClick = viewModel::startRecs, modifier = Modifier.fillMaxWidth()) {
+        QuizQuestionCard(title = "How long do you have?") {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                LengthPref.entries.forEach { l ->
+                    FilterChip(selected = state.length == l, onClick = { viewModel.setLength(l) }, label = { Text(l.label) })
+                }
+            }
+        }
+        Button(onClick = viewModel::startRecs, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
             Text("Get My Picks")
         }
         OutlinedButton(onClick = viewModel::startFullyRandom, modifier = Modifier.fillMaxWidth()) {
             Text("Surprise Me (Full Random)")
+        }
+    }
+}
+
+@Composable
+private fun QuizQuestionCard(title: String, content: @Composable () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 10.dp))
+            content()
         }
     }
 }
@@ -143,7 +165,11 @@ private fun SwipeStage(
 @Composable
 private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
     val isUpcoming = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.UPCOMING
-    Card(modifier = modifier.width(260.dp)) {
+    Card(
+        modifier = modifier.width(300.dp),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
         Column {
             AsyncImage(
                 model = imageUrl(item.posterPath),
@@ -151,8 +177,8 @@ private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f).clip(RoundedCornerShape(0.dp))
             )
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(item.title, style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(item.title, style = MaterialTheme.typography.titleLarge)
                 if (isUpcoming) {
                     Text("Releases ${DateUtils.formatForDisplay(item.releaseDate)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 } else {

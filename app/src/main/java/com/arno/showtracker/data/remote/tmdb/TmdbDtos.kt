@@ -20,7 +20,8 @@ data class TmdbMultiResult(
     @Json(name = "first_air_date") val firstAirDate: String? = null,   // tv
     val overview: String? = null,
     @Json(name = "vote_average") val voteAverage: Double? = null,
-    @Json(name = "origin_country") val originCountry: List<String>? = null // tv only; movie lists don't carry this
+    @Json(name = "origin_country") val originCountry: List<String>? = null, // tv only; movie lists don't carry this
+    @Json(name = "genre_ids") val genreIds: List<Int>? = null
 ) {
     val resolvedTitle: String get() = title ?: name ?: "Untitled"
     val resolvedDate: String? get() = releaseDate ?: firstAirDate
@@ -34,6 +35,9 @@ data class TmdbDiscoverResponse(
 
 @JsonClass(generateAdapter = true)
 data class TmdbGenre(val id: Int, val name: String)
+
+@JsonClass(generateAdapter = true)
+data class TmdbGenreListResponse(val genres: List<TmdbGenre> = emptyList())
 
 @JsonClass(generateAdapter = true)
 data class TmdbExternalIds(

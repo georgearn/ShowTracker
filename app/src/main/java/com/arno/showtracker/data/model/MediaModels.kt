@@ -10,6 +10,7 @@ data class MediaSummary(
     val overview: String,
     val tmdbVoteAverage: Double,
     val originCountries: List<String> = emptyList(), // ISO country codes, when the source list provides them
+    val genreIds: List<Int> = emptyList(),
     val imdbRating: String? = null,       // e.g. "7.4/10", filled in only where callers enrich it
     val rottenTomatoesScore: String? = null // e.g. "88%", filled in only where callers enrich it
 )

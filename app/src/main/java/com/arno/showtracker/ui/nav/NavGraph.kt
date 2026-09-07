@@ -23,6 +23,7 @@ import com.arno.showtracker.ui.screens.details.DetailsScreen
 import com.arno.showtracker.ui.screens.discover.DiscoverScreen
 import com.arno.showtracker.ui.screens.foryou.ForYouScreen
 import com.arno.showtracker.ui.screens.home.HomeScreen
+import com.arno.showtracker.ui.screens.justdropped.JustDroppedScreen
 import com.arno.showtracker.ui.screens.notifications.NotificationsScreen
 import com.arno.showtracker.ui.screens.settings.SettingsScreen
 import com.arno.showtracker.ui.screens.upcoming.UpcomingScreen
@@ -36,6 +37,7 @@ private object Routes {
     const val SETTINGS = "settings"
     const val NOTIFICATIONS = "notifications"
     const val UPCOMING = "upcoming"
+    const val JUST_DROPPED = "just_dropped"
     const val DETAILS = "details/{tmdbId}/{mediaType}"
     fun details(id: Int, type: String) = "details/$id/$type"
 }
@@ -87,11 +89,18 @@ fun ShowTrackerNavHost() {
                     onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) },
                     onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    onOpenUpcoming = { navController.navigate(Routes.UPCOMING) }
+                    onOpenUpcoming = { navController.navigate(Routes.UPCOMING) },
+                    onOpenJustDropped = { navController.navigate(Routes.JUST_DROPPED) }
                 )
             }
             composable(Routes.UPCOMING) {
                 UpcomingScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
+                )
+            }
+            composable(Routes.JUST_DROPPED) {
+                JustDroppedScreen(
                     onBack = { navController.popBackStack() },
                     onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
                 )

@@ -45,6 +45,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenUpcoming: () -> Unit,
+    onOpenJustDropped: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -103,7 +104,8 @@ fun HomeScreen(
                 onOpenDetail = onOpenDetail,
                 onToggleNotify = viewModel::toggleNotify,
                 onToggleWatchlist = viewModel::toggleWatchlist,
-                onOpenUpcoming = onOpenUpcoming
+                onOpenUpcoming = onOpenUpcoming,
+                onOpenJustDropped = onOpenJustDropped
             )
         }
     }
@@ -117,7 +119,8 @@ private fun HomeContent(
     onOpenDetail: (Int, String) -> Unit,
     onToggleNotify: (MediaSummary) -> Unit,
     onToggleWatchlist: (MediaSummary) -> Unit,
-    onOpenUpcoming: () -> Unit
+    onOpenUpcoming: () -> Unit,
+    onOpenJustDropped: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -155,13 +158,16 @@ private fun HomeContent(
 
         if (data.justDropped.isNotEmpty()) {
             Column(Modifier.padding(horizontal = 20.dp)) {
-                Text(
-                    "Just Dropped",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Just Dropped", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = onOpenJustDropped) { Text("See all") }
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    data.justDropped.chunked(3).forEach { row ->
+                    data.justDropped.take(9).chunked(3).forEach { row ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)

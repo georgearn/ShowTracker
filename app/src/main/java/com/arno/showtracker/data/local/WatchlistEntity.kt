@@ -19,6 +19,7 @@ data class WatchlistEntity(
     val imdbRating: String?,
     val rottenTomatoesScore: String?,
     val genres: String,             // comma-separated cache, refreshed on detail fetch
+    val runtimeMinutes: Int? = null, // movie runtime or single-episode runtime, when known from a detail fetch
     val addedAtEpochMillis: Long,
     val watched: Boolean = false,
     val watchedAtEpochMillis: Long? = null,

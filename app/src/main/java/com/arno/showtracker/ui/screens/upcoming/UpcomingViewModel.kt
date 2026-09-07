@@ -85,6 +85,10 @@ class UpcomingViewModel @Inject constructor(
         _filter.value = filter
     }
 
+    fun setWindow(window: UpcomingWindow) {
+        _window.value = window
+    }
+
     fun toggleNotify(item: MediaSummary) {
         viewModelScope.launch { repository.quickToggleNotify(item) }
     }

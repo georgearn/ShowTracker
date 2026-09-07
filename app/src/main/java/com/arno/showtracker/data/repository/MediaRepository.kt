@@ -30,6 +30,20 @@ class MediaRepository @Inject constructor(
     private val watchlistDao: WatchlistDao,
     private val userPrefs: UserPrefs
 ) {
+    private var genreNamesCache: Map<Int, String>? = null
+
+    /** id -> name for both movie and tv genres, fetched once and cached for the process lifetime. */
+    suspend fun genreNames(): Map<Int, String> {
+        genreNamesCache?.let { return it }
+        val names = runCatching {
+            val movie = tmdbApi.movieGenres().genres
+            val tv = tmdbApi.tvGenres().genres
+            (movie + tv).associate { it.id to it.name }
+        }.getOrDefault(emptyMap())
+        genreNamesCache = names
+        return names
+    }
+
     // ---------- Search / Discover ----------
 
     suspend fun search(query: String): List<MediaSummary> {
@@ -174,6 +188,7 @@ class MediaRepository @Inject constructor(
                 imdbRating = detail.imdbRating,
                 rottenTomatoesScore = detail.rottenTomatoesScore,
                 genres = detail.genres.joinToString(","),
+                runtimeMinutes = detail.runtimeMinutes,
                 addedAtEpochMillis = System.currentTimeMillis(),
                 notifyOnRelease = notifyOnRelease && detail.releaseStatus == com.arno.showtracker.data.model.ReleaseStatus.UPCOMING,
                 lastKnownReleaseStatus = detail.releaseStatus.name
@@ -207,7 +222,7 @@ class MediaRepository @Inject constructor(
      * bucket) and media type. Falls back to the full unwatched watchlist if the filters match
      * nothing, so the queue is never empty just because of a narrow mood pick.
      */
-    suspend fun suggestionQueue(mood: SuggestionMood, type: MediaType?): List<WatchlistEntity> {
+    suspend fun suggestionQueue(mood: SuggestionMood, type: MediaType?, length: LengthPref = LengthPref.ANY): List<WatchlistEntity> {
         val all = watchlistDao.observeAll().first().filter { !it.watched }
         val genres = mood.genres
         var filtered = all
@@ -216,6 +231,10 @@ class MediaRepository @Inject constructor(
             filtered = filtered.filter { item ->
                 item.genres.split(",").map { it.trim() }.any { it in genres }
             }
+        }
+        if (length != LengthPref.ANY) {
+            val byLength = filtered.filter { item -> item.runtimeMinutes?.let { length.matches(it) } == true }
+            if (byLength.isNotEmpty()) filtered = byLength
         }
         if (filtered.isEmpty()) filtered = all
         return filtered.shuffled()
@@ -247,6 +266,21 @@ enum class SuggestionMood(val genres: List<String>?) {
     INTENSE(listOf("Thriller", "Horror", "Action", "Crime"))
 }
 
+/** Runtime-minutes bucket for the "how long" quiz question - movie runtime or single-episode length. */
+enum class LengthPref(val label: String) {
+    ANY("Any length"),
+    SHORT("Quick (< 45 min)"),
+    MEDIUM("Standard (45-100 min)"),
+    LONG("Long (> 100 min)");
+
+    fun matches(minutes: Int): Boolean = when (this) {
+        ANY -> true
+        SHORT -> minutes < 45
+        MEDIUM -> minutes in 45..100
+        LONG -> minutes > 100
+    }
+}
+
 private fun MediaSummary.toWatchlistEntity(notifyOnRelease: Boolean = false) = WatchlistEntity(
     tmdbId = tmdbId,
     mediaType = mediaType.apiValue,
@@ -271,7 +305,8 @@ fun TmdbMultiResult.toSummary(forcedType: MediaType? = null): MediaSummary = Med
     releaseDate = resolvedDate,
     overview = overview.orEmpty(),
     tmdbVoteAverage = voteAverage ?: 0.0,
-    originCountries = originCountry.orEmpty()
+    originCountries = originCountry.orEmpty(),
+    genreIds = genreIds.orEmpty()
 )
 
 fun imageUrl(path: String?, size: String = "w500"): String? =

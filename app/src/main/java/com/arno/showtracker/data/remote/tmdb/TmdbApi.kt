@@ -62,4 +62,10 @@ interface TmdbApi {
         @Path("id") id: Int,
         @Query("append_to_response") append: String = "watch/providers,external_ids"
     ): TmdbDetailResponse
+
+    @GET("genre/movie/list")
+    suspend fun movieGenres(): TmdbGenreListResponse
+
+    @GET("genre/tv/list")
+    suspend fun tvGenres(): TmdbGenreListResponse
 }

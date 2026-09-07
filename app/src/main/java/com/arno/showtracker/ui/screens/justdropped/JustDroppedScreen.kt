@@ -1,14 +1,18 @@
-package com.arno.showtracker.ui.screens.upcoming
+package com.arno.showtracker.ui.screens.justdropped
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,25 +33,25 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.arno.showtracker.ui.screens.common.OverlayIcon
 import com.arno.showtracker.ui.screens.common.PosterOverlayCard
-import com.arno.showtracker.util.DateUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UpcomingScreen(
+fun JustDroppedScreen(
     onBack: () -> Unit,
     onOpenDetail: (Int, String) -> Unit,
-    viewModel: UpcomingViewModel = hiltViewModel()
+    viewModel: JustDroppedViewModel = hiltViewModel()
 ) {
     val items by viewModel.items.collectAsStateWithLifecycle()
-    val filter by viewModel.filter.collectAsStateWithLifecycle()
-    val window by viewModel.window.collectAsStateWithLifecycle()
+    val typeFilter by viewModel.typeFilter.collectAsStateWithLifecycle()
+    val genreFilter by viewModel.genreFilter.collectAsStateWithLifecycle()
+    val availableGenres by viewModel.availableGenres.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
-    val notifyIds by viewModel.notifyIds.collectAsStateWithLifecycle()
+    val savedIds by viewModel.savedIds.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Releasing Soon") },
+                title = { Text("Just Dropped") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
                 },
@@ -55,29 +59,37 @@ fun UpcomingScreen(
             )
         }
     ) { padding ->
-        androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
+        Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
+            Text(
+                "Released in the last 30 days",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 8.dp)
+            )
             Row(
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier.padding(vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                UpcomingFilter.entries.forEach { f ->
+                JustDroppedTypeFilter.entries.forEach { f ->
                     FilterChip(
-                        selected = filter == f,
-                        onClick = { viewModel.setFilter(f) },
+                        selected = typeFilter == f,
+                        onClick = { viewModel.setTypeFilter(f) },
                         label = { Text(f.label) }
                     )
                 }
             }
-            Row(
-                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                UpcomingWindow.entries.forEach { w ->
-                    FilterChip(
-                        selected = window == w,
-                        onClick = { viewModel.setWindow(w) },
-                        label = { Text(w.label) }
-                    )
+            if (availableGenres.isNotEmpty()) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                ) {
+                    items(availableGenres, key = { it.first }) { (id, name) ->
+                        FilterChip(
+                            selected = genreFilter == id,
+                            onClick = { viewModel.setGenreFilter(id) },
+                            label = { Text(name) }
+                        )
+                    }
                 }
             }
 
@@ -85,24 +97,28 @@ fun UpcomingScreen(
                 when {
                     isLoading -> CircularProgressIndicator(Modifier.align(Alignment.TopCenter))
                     items.isEmpty() -> Text(
-                        "Nothing upcoming right now.",
+                        "Nothing matches these filters.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     else -> LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Fixed(3),
                         contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
                         items(items, key = { it.tmdbId }) { item ->
-                            val days = DateUtils.daysUntil(item.releaseDate)
+                            val scoreCaption = listOfNotNull(
+                                item.imdbRating?.let { "IMDb ${it.removeSuffix("/10")}" },
+                                item.rottenTomatoesScore?.let { "RT $it" }
+                            ).joinToString(" · ").ifBlank { null }
                             PosterOverlayCard(
                                 item = item,
-                                isOn = notifyIds.contains(item.tmdbId),
-                                overlayIcon = OverlayIcon.NOTIFY,
-                                caption = if (days != null) "in ${days}d · ${DateUtils.formatForDisplay(item.releaseDate)}" else DateUtils.formatForDisplay(item.releaseDate),
+                                isOn = savedIds.contains(item.tmdbId),
+                                overlayIcon = OverlayIcon.ADD,
+                                caption = scoreCaption,
                                 onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
-                                onOverlayClick = { viewModel.toggleNotify(item) }
+                                onOverlayClick = { viewModel.toggleWatchlist(item) }
                             )
                         }
                     }
