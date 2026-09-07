@@ -3,6 +3,7 @@ package com.georgearn.showtracker.data.local
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -25,6 +26,18 @@ class UserPrefs @Inject constructor(private val context: Context) {
         val BLOCKED_COUNTRIES = stringSetPreferencesKey("blocked_origin_countries") // ISO country codes to hide
         val PREFERRED_GENRES = stringSetPreferencesKey("preferred_genre_ids") // TMDB genre ids, as strings
         val HAS_ONBOARDED = booleanPreferencesKey("has_onboarded")
+        val UPCOMING_PAGES = intPreferencesKey("upcoming_pages_per_type") // TMDB pages (20 results each) fetched per media type
+    }
+
+    companion object {
+        const val DEFAULT_UPCOMING_PAGES = 3
+        const val MAX_UPCOMING_PAGES = 15 // ~300 titles/type - generous without hammering TMDB's rate limit
+    }
+
+    val upcomingPagesPerType: Flow<Int> = context.dataStore.data.map { it[Keys.UPCOMING_PAGES] ?: DEFAULT_UPCOMING_PAGES }
+
+    suspend fun setUpcomingPagesPerType(pages: Int) {
+        context.dataStore.edit { it[Keys.UPCOMING_PAGES] = pages.coerceIn(1, MAX_UPCOMING_PAGES) }
     }
 
     val blockedCountries: Flow<Set<String>> = context.dataStore.data.map { it[Keys.BLOCKED_COUNTRIES] ?: emptySet() }

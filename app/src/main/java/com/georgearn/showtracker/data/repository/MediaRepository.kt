@@ -17,6 +17,7 @@ import com.georgearn.showtracker.data.remote.tmdb.TmdbMultiResult
 import com.georgearn.showtracker.di.ApiConstants
 import com.georgearn.showtracker.util.DateUtils
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -87,15 +88,16 @@ class MediaRepository @Inject constructor(
      * source for the "Releasing Soon" time-window sections. Fetches a few pages per media type
      * since near-term releases alone can fill page 1, otherwise nothing further out ever shows.
      */
-    suspend fun upcoming(pagesPerType: Int = 3): List<MediaSummary> {
+    suspend fun upcoming(pagesPerType: Int? = null): List<MediaSummary> {
+        val pages = pagesPerType ?: userPrefs.upcomingPagesPerType.first()
         val today = DateUtils.todayIso()
         val blocked = userPrefs.blockedCountries.first()
-        val movies = (1..pagesPerType).flatMap { page ->
-            tmdbApi.discoverMovieUpcoming(gte = today, page = page).results
-        }.map { it.toSummary(MediaType.MOVIE) }
-        val tv = (1..pagesPerType).flatMap { page ->
-            tmdbApi.discoverTvUpcoming(gte = today, page = page).results
-        }.map { it.toSummary(MediaType.TV) }
+        val movies = coroutineScope {
+            (1..pages).map { page -> async { tmdbApi.discoverMovieUpcoming(gte = today, page = page).results } }.awaitAll()
+        }.flatten().map { it.toSummary(MediaType.MOVIE) }
+        val tv = coroutineScope {
+            (1..pages).map { page -> async { tmdbApi.discoverTvUpcoming(gte = today, page = page).results } }.awaitAll()
+        }.flatten().map { it.toSummary(MediaType.TV) }
         return (movies + tv).sortedBy { it.releaseDate }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }

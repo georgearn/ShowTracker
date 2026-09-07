@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -47,6 +48,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val dynamicColor by viewModel.dynamicColorEnabled.collectAsStateWithLifecycle()
     val region by viewModel.watchRegion.collectAsStateWithLifecycle()
     val blockedCountries by viewModel.blockedCountries.collectAsStateWithLifecycle()
+    val upcomingPages by viewModel.upcomingPagesPerType.collectAsStateWithLifecycle()
     val pendingRefresh by viewModel.pendingRefresh.collectAsStateWithLifecycle()
     var countrySearch by remember { mutableStateOf("") }
     var expandedContinents by remember { mutableStateOf(setOf<String>()) }
@@ -124,6 +126,27 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                     label = { Text("ISO country code, e.g. US, GB, MD") },
                     singleLine = true,
                     modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
+                )
+
+                Text("Releasing Soon lookahead", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
+                Text(
+                    "How many pages of upcoming titles to fetch per type (movies/series), ~20 titles per page. " +
+                        "Higher values surface releases further in the future but take a bit longer to load.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "$upcomingPages page${if (upcomingPages == 1) "" else "s"} · ~${upcomingPages * 20} titles per type",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+                Slider(
+                    value = upcomingPages.toFloat(),
+                    onValueChange = { viewModel.setUpcomingPagesPerType(it.toInt()) },
+                    valueRange = 1f..15f,
+                    steps = 13,
+                    modifier = Modifier.fillMaxWidth()
                 )
 
                 Text("Content Filters", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))

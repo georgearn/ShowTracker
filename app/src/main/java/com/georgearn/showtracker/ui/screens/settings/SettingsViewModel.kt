@@ -31,6 +31,9 @@ class SettingsViewModel @Inject constructor(
     val blockedCountries: StateFlow<Set<String>> = userPrefs.blockedCountries
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    val upcomingPagesPerType: StateFlow<Int> = userPrefs.upcomingPagesPerType
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), UserPrefs.DEFAULT_UPCOMING_PAGES)
+
     /** True right after a country toggle, until the user taps Refresh - nudges them that content is stale. */
     private val _pendingRefresh = MutableStateFlow(false)
     val pendingRefresh: StateFlow<Boolean> = _pendingRefresh
@@ -47,5 +50,10 @@ class SettingsViewModel @Inject constructor(
     fun refreshContent() = viewModelScope.launch {
         refreshBus.notifyChanged()
         _pendingRefresh.value = false
+    }
+
+    fun setUpcomingPagesPerType(pages: Int) = viewModelScope.launch {
+        userPrefs.setUpcomingPagesPerType(pages)
+        _pendingRefresh.value = true
     }
 }
