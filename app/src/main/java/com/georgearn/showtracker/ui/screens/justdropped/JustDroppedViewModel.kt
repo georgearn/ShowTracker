@@ -3,7 +3,6 @@ package com.georgearn.showtracker.ui.screens.justdropped
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.georgearn.showtracker.data.local.ContentRefreshBus
-import com.georgearn.showtracker.data.local.UserPrefs
 import com.georgearn.showtracker.data.model.MediaSummary
 import com.georgearn.showtracker.data.model.MediaType
 import com.georgearn.showtracker.data.repository.MediaRepository
@@ -13,7 +12,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -30,11 +28,8 @@ enum class JustDroppedTypeFilter(val label: String, val type: MediaType?) {
 @HiltViewModel
 class JustDroppedViewModel @Inject constructor(
     private val repository: MediaRepository,
-    private val refreshBus: ContentRefreshBus,
-    private val userPrefs: UserPrefs
+    private val refreshBus: ContentRefreshBus
 ) : ViewModel() {
-
-    private var appliedDefaultGenre = false
 
     private val _state = MutableStateFlow<UiState<List<MediaSummary>>>(UiState.Loading)
     private val _typeFilter = MutableStateFlow(JustDroppedTypeFilter.ALL)
@@ -85,16 +80,7 @@ class JustDroppedViewModel @Inject constructor(
             _state.value = UiState.Loading
             try {
                 _genreNames.value = repository.genreNames()
-                val list = repository.recentlyReleased()
-                _state.value = UiState.Success(list)
-                if (!appliedDefaultGenre) {
-                    appliedDefaultGenre = true
-                    val preferred = userPrefs.preferredGenreIds.first()
-                    if (preferred.isNotEmpty()) {
-                        val presentPreferred = list.flatMap { it.genreIds }.distinct().firstOrNull { it in preferred }
-                        if (presentPreferred != null) _genreFilter.value = presentPreferred
-                    }
-                }
+                _state.value = UiState.Success(repository.recentlyReleased())
             } catch (t: Throwable) {
                 _state.value = UiState.Error(t.message ?: "Couldn't load. Check your connection.")
             }
