@@ -15,14 +15,6 @@ private val Context.dataStore by preferencesDataStore(name = "show_tracker_prefs
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-/** Country origin filter: common blocklist candidates, shown as toggles in Settings. */
-enum class OriginCountry(val code: String, val displayName: String) {
-    TURKEY("TR", "Turkey"),
-    CHINA("CN", "China"),
-    RUSSIA("RU", "Russia"),
-    UKRAINE("UA", "Ukraine")
-}
-
 @Singleton
 class UserPrefs @Inject constructor(private val context: Context) {
 

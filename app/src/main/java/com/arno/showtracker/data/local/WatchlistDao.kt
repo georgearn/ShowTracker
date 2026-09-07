@@ -35,8 +35,11 @@ interface WatchlistDao {
     @Query("DELETE FROM watchlist WHERE tmdbId = :tmdbId")
     suspend fun deleteById(tmdbId: Int)
 
-    @Query("UPDATE watchlist SET watched = :watched WHERE tmdbId = :tmdbId")
-    suspend fun setWatched(tmdbId: Int, watched: Boolean)
+    @Query("UPDATE watchlist SET watched = :watched, watchedAtEpochMillis = :watchedAt WHERE tmdbId = :tmdbId")
+    suspend fun setWatched(tmdbId: Int, watched: Boolean, watchedAt: Long?)
+
+    @Query("SELECT * FROM watchlist WHERE watched = 1 ORDER BY watchedAtEpochMillis DESC")
+    fun observeHistory(): Flow<List<WatchlistEntity>>
 
     @Query("UPDATE watchlist SET lastKnownReleaseStatus = :status WHERE tmdbId = :tmdbId")
     suspend fun updateStatus(tmdbId: Int, status: String)

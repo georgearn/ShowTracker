@@ -12,6 +12,8 @@ object DateUtils {
 
     fun todayIso(): String = today().format(ISO)
 
+    fun isoDaysAgo(days: Long): String = today().minusDays(days).format(ISO)
+
     fun parseOrNull(iso: String?): LocalDate? {
         if (iso.isNullOrBlank()) return null
         return try { LocalDate.parse(iso, ISO) } catch (e: DateTimeParseException) { null }

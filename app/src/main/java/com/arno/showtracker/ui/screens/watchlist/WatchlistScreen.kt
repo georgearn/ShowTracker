@@ -51,8 +51,21 @@ fun WatchlistScreen(
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
             Text("My Watchlist", style = MaterialTheme.typography.headlineSmall)
-            val count = state.readyToWatch.count + state.waitingOnRelease.count + state.watched.count
+            val count = state.readyToWatch.count + state.waitingOnRelease.count + state.history.count
             Text("$count saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            WatchlistTab.entries.forEach { t ->
+                FilterChip(
+                    selected = state.tab == t,
+                    onClick = { viewModel.setTab(t) },
+                    label = { Text(if (t == WatchlistTab.HISTORY) "${t.label} (${state.history.count})" else t.label) }
+                )
+            }
         }
 
         Row(
@@ -68,10 +81,18 @@ fun WatchlistScreen(
             }
         }
 
-        if (state.readyToWatch.count == 0 && state.waitingOnRelease.count == 0 && state.watched.count == 0) {
+        val isEmpty = when (state.tab) {
+            WatchlistTab.LIST -> state.readyToWatch.count == 0 && state.waitingOnRelease.count == 0
+            WatchlistTab.HISTORY -> state.history.count == 0
+        }
+
+        if (isEmpty) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    "Nothing saved yet. Add titles from Home or Discover.",
+                    when (state.tab) {
+                        WatchlistTab.LIST -> "Nothing saved yet. Add titles from Home or Discover."
+                        WatchlistTab.HISTORY -> "Nothing watched yet. Mark titles as watched from your list."
+                    },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(24.dp)
                 )
@@ -81,9 +102,15 @@ fun WatchlistScreen(
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                section("r", state.readyToWatch, onOpenDetail, viewModel)
-                section("w", state.waitingOnRelease, onOpenDetail, viewModel)
-                section("d", state.watched, onOpenDetail, viewModel)
+                when (state.tab) {
+                    WatchlistTab.LIST -> {
+                        section("r", state.readyToWatch, onOpenDetail, viewModel)
+                        section("w", state.waitingOnRelease, onOpenDetail, viewModel)
+                    }
+                    WatchlistTab.HISTORY -> {
+                        section("h", state.history, onOpenDetail, viewModel)
+                    }
+                }
             }
         }
     }

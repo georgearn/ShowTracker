@@ -10,11 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
@@ -25,6 +25,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -44,6 +45,7 @@ fun HomeScreen(
     onOpenDetail: (Int, String) -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenUpcoming: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -101,7 +103,8 @@ fun HomeScreen(
                 notifyIds = notifyIds,
                 onOpenDetail = onOpenDetail,
                 onToggleNotify = viewModel::toggleNotify,
-                onToggleWatchlist = viewModel::toggleWatchlist
+                onToggleWatchlist = viewModel::toggleWatchlist,
+                onOpenUpcoming = onOpenUpcoming
             )
         }
     }
@@ -114,24 +117,28 @@ private fun HomeContent(
     notifyIds: Set<Int>,
     onOpenDetail: (Int, String) -> Unit,
     onToggleNotify: (MediaSummary) -> Unit,
-    onToggleWatchlist: (MediaSummary) -> Unit
+    onToggleWatchlist: (MediaSummary) -> Unit,
+    onOpenUpcoming: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(22.dp)
     ) {
         if (data.upcoming.isNotEmpty()) {
             Column {
-                Text(
-                    "Releasing Soon",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Releasing Soon", style = MaterialTheme.typography.titleMedium)
+                    TextButton(onClick = onOpenUpcoming) { Text("See all") }
+                }
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(data.upcoming, key = { "u${it.tmdbId}" }) { item ->
+                    items(data.upcoming.take(12), key = { "u${it.tmdbId}" }) { item ->
                         val days = DateUtils.daysUntil(item.releaseDate)
                         PosterOverlayCard(
                             item = item,
@@ -154,25 +161,29 @@ private fun HomeContent(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(3),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    items(data.justDropped, key = { "d${it.tmdbId}" }) { item ->
-                        val scoreCaption = listOfNotNull(
-                            item.imdbRating?.let { "IMDb ${it.removeSuffix("/10")}" },
-                            item.rottenTomatoesScore?.let { "RT $it" }
-                        ).joinToString(" · ").ifBlank { null }
-                        PosterOverlayCard(
-                            item = item,
-                            isOn = savedIds.contains(item.tmdbId),
-                            overlayIcon = OverlayIcon.ADD,
-                            caption = scoreCaption,
-                            onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
-                            onOverlayClick = { onToggleWatchlist(item) }
-                        )
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    data.justDropped.chunked(3).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            row.forEach { item ->
+                                val scoreCaption = listOfNotNull(
+                                    item.imdbRating?.let { "IMDb ${it.removeSuffix("/10")}" },
+                                    item.rottenTomatoesScore?.let { "RT $it" }
+                                ).joinToString(" · ").ifBlank { null }
+                                PosterOverlayCard(
+                                    item = item,
+                                    isOn = savedIds.contains(item.tmdbId),
+                                    overlayIcon = OverlayIcon.ADD,
+                                    caption = scoreCaption,
+                                    onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
+                                    onOverlayClick = { onToggleWatchlist(item) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            repeat(3 - row.size) { Box(Modifier.weight(1f)) }
+                        }
                     }
                 }
             }

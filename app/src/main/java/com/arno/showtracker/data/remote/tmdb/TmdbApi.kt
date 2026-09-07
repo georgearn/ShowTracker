@@ -22,6 +22,7 @@ interface TmdbApi {
     suspend fun discoverMovieReleased(
         @Query("sort_by") sortBy: String = "primary_release_date.desc",
         @Query("primary_release_date.lte") lte: String,
+        @Query("primary_release_date.gte") gte: String? = null,
         @Query("vote_count.gte") minVotes: Int = 5,
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse
@@ -30,6 +31,7 @@ interface TmdbApi {
     suspend fun discoverTvReleased(
         @Query("sort_by") sortBy: String = "first_air_date.desc",
         @Query("first_air_date.lte") lte: String,
+        @Query("first_air_date.gte") gte: String? = null,
         @Query("vote_count.gte") minVotes: Int = 5,
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse

@@ -1,6 +1,7 @@
 package com.arno.showtracker.ui.screens.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.offset
 import coil.compose.AsyncImage
 import com.arno.showtracker.data.model.MediaSummary
 import com.arno.showtracker.data.repository.imageUrl
@@ -103,18 +105,19 @@ fun PosterOverlayCard(
                 onClick = onOverlayClick,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(6.dp)
-                    .size(30.dp)
+                    .offset(x = 8.dp, y = (-8).dp)
+                    .size(24.dp)
                     .clip(CircleShape)
-                    .background(if (isOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.scrim.copy(alpha = 0.75f))
+                    .background(if (isOn) MaterialTheme.colorScheme.primary else Color(0xFFD8D8D8))
+                    .then(if (!isOn) Modifier.border(1.dp, Color.White, CircleShape) else Modifier)
             ) {
                 val (icon, tint) = when (overlayIcon) {
                     OverlayIcon.ADD -> (if (isOn) Icons.Default.Check else Icons.Default.Add) to
-                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color.White)
+                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color(0xFF5A5A5A))
                     OverlayIcon.NOTIFY -> (if (isOn) Icons.Default.NotificationsActive else Icons.Default.NotificationsNone) to
-                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color.White)
+                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color(0xFF5A5A5A))
                 }
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(18.dp))
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
             }
             if (caption != null) {
                 Text(

@@ -49,14 +49,19 @@ class MediaRepository @Inject constructor(
             .filterNotBlocked(blocked)
     }
 
-    /** Home feed: recently released titles across movies + tv, newest first, with IMDb/RT scores merged in. */
-    suspend fun recentlyReleased(limit: Int = 9): List<MediaSummary> {
+    /**
+     * Home feed: titles released in the last [windowDays] days across movies + tv, newest first,
+     * with IMDb/RT scores merged in (OMDb lookups capped at [ratingsCap] to bound request fan-out).
+     */
+    suspend fun recentlyReleased(windowDays: Long = 30, ratingsCap: Int = 24): List<MediaSummary> {
         val today = DateUtils.todayIso()
+        val since = DateUtils.isoDaysAgo(windowDays)
         val blocked = userPrefs.blockedCountries.first()
-        val movies = tmdbApi.discoverMovieReleased(lte = today).results.map { it.toSummary(MediaType.MOVIE) }
-        val tv = tmdbApi.discoverTvReleased(lte = today).results.map { it.toSummary(MediaType.TV) }
-        val combined = (movies + tv).sortedByDescending { it.releaseDate }.filterNotBlocked(blocked).take(limit)
-        return enrichWithOmdbRatings(combined)
+        val movies = tmdbApi.discoverMovieReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.MOVIE) }
+        val tv = tmdbApi.discoverTvReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.TV) }
+        val combined = (movies + tv).sortedByDescending { it.releaseDate }.filterNotBlocked(blocked)
+        val rated = enrichWithOmdbRatings(combined.take(ratingsCap))
+        return rated + combined.drop(ratingsCap)
     }
 
     /** Upcoming feed: titles not out yet, soonest first - the "set a notification" pool. */
@@ -104,12 +109,19 @@ class MediaRepository @Inject constructor(
 
         var imdbRating: String? = null
         var rtScore: String? = null
-        if (!imdbId.isNullOrBlank() && BuildConfig.OMDB_API_KEY.isNotBlank()) {
-            runCatching { omdbApi.byImdbId(imdbId, BuildConfig.OMDB_API_KEY) }.getOrNull()?.let { omdb ->
-                if (omdb.Response != "False") {
-                    imdbRating = omdb.imdbRating?.takeIf { it != "N/A" }?.let { "$it/10" }
-                    rtScore = omdb.Ratings?.firstOrNull { it.Source == "Rotten Tomatoes" }?.Value
-                }
+        if (BuildConfig.OMDB_API_KEY.isNotBlank()) {
+            var omdb = if (!imdbId.isNullOrBlank()) {
+                runCatching { omdbApi.byImdbId(imdbId, BuildConfig.OMDB_API_KEY) }.getOrNull()
+            } else null
+            // Some TV titles don't resolve an IMDb ID from TMDB - fall back to a title+year lookup.
+            if (omdb == null || omdb.Response == "False") {
+                omdb = runCatching {
+                    omdbApi.byTitle(detail.resolvedTitle, detail.resolvedDate?.take(4), BuildConfig.OMDB_API_KEY)
+                }.getOrNull()
+            }
+            if (omdb != null && omdb.Response != "False") {
+                imdbRating = omdb.imdbRating?.takeIf { it != "N/A" }?.let { "$it/10" }
+                rtScore = omdb.Ratings?.firstOrNull { it.Source == "Rotten Tomatoes" }?.Value
             }
         }
 
@@ -171,7 +183,8 @@ class MediaRepository @Inject constructor(
 
     suspend fun removeFromWatchlist(tmdbId: Int) = watchlistDao.deleteById(tmdbId)
 
-    suspend fun setWatched(tmdbId: Int, watched: Boolean) = watchlistDao.setWatched(tmdbId, watched)
+    suspend fun setWatched(tmdbId: Int, watched: Boolean) =
+        watchlistDao.setWatched(tmdbId, watched, if (watched) System.currentTimeMillis() else null)
 
     suspend fun setNotifyOnRelease(item: WatchlistEntity, enabled: Boolean) =
         watchlistDao.update(item.copy(notifyOnRelease = enabled))

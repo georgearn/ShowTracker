@@ -22,6 +22,11 @@ enum class WatchlistOrganization(val label: String) {
     BY_TYPE_AND_GENRE("Type & genre")
 }
 
+enum class WatchlistTab(val label: String) {
+    LIST("My List"),
+    HISTORY("History")
+}
+
 data class WatchlistGroup(val title: String?, val items: List<WatchlistEntity>)
 
 data class WatchlistSection(val title: String, val groups: List<WatchlistGroup>) {
@@ -29,10 +34,11 @@ data class WatchlistSection(val title: String, val groups: List<WatchlistGroup>)
 }
 
 data class WatchlistUiState(
+    val tab: WatchlistTab = WatchlistTab.LIST,
     val organization: WatchlistOrganization = WatchlistOrganization.PLAIN,
     val readyToWatch: WatchlistSection = WatchlistSection("Ready to watch", emptyList()),
     val waitingOnRelease: WatchlistSection = WatchlistSection("Waiting on release", emptyList()),
-    val watched: WatchlistSection = WatchlistSection("Already watched", emptyList())
+    val history: WatchlistSection = WatchlistSection("Watched", emptyList())
 )
 
 @HiltViewModel
@@ -43,8 +49,16 @@ class WatchlistViewModel @Inject constructor(
     private val _organization = MutableStateFlow(WatchlistOrganization.PLAIN)
     val organization: StateFlow<WatchlistOrganization> = _organization
 
-    val uiState: StateFlow<WatchlistUiState> = combine(repository.observeWatchlist(), _organization) { list, org ->
+    private val _tab = MutableStateFlow(WatchlistTab.LIST)
+    val tab: StateFlow<WatchlistTab> = _tab
+
+    val uiState: StateFlow<WatchlistUiState> = combine(
+        repository.observeWatchlist(),
+        _organization,
+        _tab
+    ) { list, org, tab ->
         WatchlistUiState(
+            tab = tab,
             organization = org,
             readyToWatch = WatchlistSection(
                 "Ready to watch",
@@ -54,9 +68,9 @@ class WatchlistViewModel @Inject constructor(
                 "Waiting on release",
                 group(list.filter { DateUtils.releaseStatus(it.releaseDate) == ReleaseStatus.UPCOMING }, org)
             ),
-            watched = WatchlistSection(
-                "Already watched",
-                group(list.filter { it.watched }, org)
+            history = WatchlistSection(
+                "Watched",
+                group(list.filter { it.watched }.sortedByDescending { it.watchedAtEpochMillis ?: 0L }, org)
             )
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), WatchlistUiState())
@@ -79,6 +93,10 @@ class WatchlistViewModel @Inject constructor(
 
     fun setOrganization(org: WatchlistOrganization) {
         _organization.value = org
+    }
+
+    fun setTab(tab: WatchlistTab) {
+        _tab.value = tab
     }
 
     fun toggleWatched(item: WatchlistEntity) {

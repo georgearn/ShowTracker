@@ -21,6 +21,7 @@ data class WatchlistEntity(
     val genres: String,             // comma-separated cache, refreshed on detail fetch
     val addedAtEpochMillis: Long,
     val watched: Boolean = false,
+    val watchedAtEpochMillis: Long? = null,
     val notifyOnRelease: Boolean = false,
     val lastKnownReleaseStatus: String = "UNKNOWN", // ReleaseStatus.name cache for the background worker diff
     val releaseNotificationSent: Boolean = false
