@@ -6,10 +6,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,6 +46,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val region by viewModel.watchRegion.collectAsStateWithLifecycle()
     val blockedCountries by viewModel.blockedCountries.collectAsStateWithLifecycle()
     var countrySearch by remember { mutableStateOf("") }
+    var expandedContinents by remember { mutableStateOf(setOf<String>()) }
 
     Scaffold(
         topBar = {
@@ -146,25 +150,57 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
 
             val filtered = Countries.ALL.filter { it.displayName.contains(countrySearch, ignoreCase = true) }
             val grouped = filtered.groupBy { it.continent }.toSortedMap()
+            val searching = countrySearch.isNotBlank()
             grouped.forEach { (continent, countries) ->
+                val blockedInContinent = countries.count { blockedCountries.contains(it.code) }
+                val isExpanded = searching || expandedContinents.contains(continent)
                 item {
-                    Text(
-                        continent,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)
-                    )
-                }
-                items(countries, key = { it.code }) { country ->
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                expandedContinents = if (expandedContinents.contains(continent)) {
+                                    expandedContinents - continent
+                                } else {
+                                    expandedContinents + continent
+                                }
+                            }
+                            .padding(top = 14.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(country.displayName, modifier = Modifier.weight(1f))
-                        Switch(
-                            checked = blockedCountries.contains(country.code),
-                            onCheckedChange = { viewModel.setCountryBlocked(country.code, it) }
+                        Text(
+                            continent,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.weight(1f)
                         )
+                        if (blockedInContinent > 0) {
+                            Text(
+                                "$blockedInContinent hidden",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(end = 4.dp)
+                            )
+                        }
+                        Icon(
+                            if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (isExpanded) {
+                    items(countries, key = { it.code }) { country ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(country.displayName, modifier = Modifier.weight(1f))
+                            Switch(
+                                checked = blockedCountries.contains(country.code),
+                                onCheckedChange = { viewModel.setCountryBlocked(country.code, it) }
+                            )
+                        }
                     }
                 }
             }

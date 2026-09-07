@@ -88,24 +88,40 @@ fun PosterOverlayCard(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier.clickable(onClick = onClick)) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(2f / 3f)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant)
-        ) {
-            AsyncImage(
-                model = imageUrl(item.posterPath),
-                contentDescription = item.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth()
-            )
+        Box(modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                AsyncImage(
+                    model = imageUrl(item.posterPath),
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (caption != null) {
+                    Text(
+                        text = caption,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(6.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f))
+                            .padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+            }
+            // Outside the clipped poster Box so the badge can poke past its rounded corner instead of being cut off.
             IconButton(
                 onClick = onOverlayClick,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .offset(x = 8.dp, y = (-8).dp)
+                    .offset(x = 6.dp, y = (-6).dp)
                     .size(24.dp)
                     .clip(CircleShape)
                     .background(if (isOn) MaterialTheme.colorScheme.primary else Color(0xFFD8D8D8))
@@ -118,19 +134,6 @@ fun PosterOverlayCard(
                         (if (isOn) MaterialTheme.colorScheme.onPrimary else Color(0xFF5A5A5A))
                 }
                 Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
-            }
-            if (caption != null) {
-                Text(
-                    text = caption,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.surface,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f))
-                        .padding(horizontal = 7.dp, vertical = 3.dp)
-                )
             }
         }
         Text(

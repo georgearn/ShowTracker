@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.arno.showtracker.data.model.MediaSummary
 import com.arno.showtracker.data.model.MediaType
 import com.arno.showtracker.data.repository.MediaRepository
+import com.arno.showtracker.util.DateUtils
 import com.arno.showtracker.util.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,6 +23,13 @@ enum class UpcomingFilter(val label: String, val type: MediaType?) {
     SERIES("Series", MediaType.TV)
 }
 
+enum class UpcomingWindow(val label: String, val maxDays: Long?) {
+    TWO_WEEKS("Next 2 weeks", 14),
+    ONE_MONTH("Next month", 30),
+    THREE_MONTHS("Next 3 months", 90),
+    BEYOND("More / TBA", null)
+}
+
 @HiltViewModel
 class UpcomingViewModel @Inject constructor(
     private val repository: MediaRepository
@@ -31,9 +39,20 @@ class UpcomingViewModel @Inject constructor(
     private val _filter = MutableStateFlow(UpcomingFilter.ALL)
     val filter: StateFlow<UpcomingFilter> = _filter
 
-    val items: StateFlow<List<MediaSummary>> = combine(_state, _filter) { state, filter ->
-        val list = (state as? UiState.Success)?.data.orEmpty()
-        if (filter.type == null) list else list.filter { it.mediaType == filter.type }
+    private val _window = MutableStateFlow(UpcomingWindow.ONE_MONTH)
+    val window: StateFlow<UpcomingWindow> = _window
+
+    val items: StateFlow<List<MediaSummary>> = combine(_state, _filter, _window) { state, filter, window ->
+        var list = (state as? UiState.Success)?.data.orEmpty()
+        if (filter.type != null) list = list.filter { it.mediaType == filter.type }
+        list = list.filter { item ->
+            val days = DateUtils.daysUntil(item.releaseDate)
+            when (window) {
+                UpcomingWindow.BEYOND -> days == null || days > UpcomingWindow.THREE_MONTHS.maxDays!!
+                else -> days != null && days <= window.maxDays!!
+            }
+        }
+        list
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val isLoading: StateFlow<Boolean> = _state.map { it is UiState.Loading }
