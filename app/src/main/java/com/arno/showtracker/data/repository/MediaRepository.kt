@@ -222,9 +222,14 @@ class MediaRepository @Inject constructor(
      * bucket) and media type. Falls back to the full unwatched watchlist if the filters match
      * nothing, so the queue is never empty just because of a narrow mood pick.
      */
-    suspend fun suggestionQueue(mood: SuggestionMood, type: MediaType?, length: LengthPref = LengthPref.ANY): List<WatchlistEntity> {
+    suspend fun suggestionQueue(
+        mood: SuggestionMood,
+        type: MediaType?,
+        length: LengthPref = LengthPref.ANY,
+        genreOverride: Set<String>? = null
+    ): List<WatchlistEntity> {
         val all = watchlistDao.observeAll().first().filter { !it.watched }
-        val genres = mood.genres
+        val genres = if (!genreOverride.isNullOrEmpty()) genreOverride else mood.genres
         var filtered = all
         if (type != null) filtered = filtered.filter { it.mediaType == type.apiValue }
         if (genres != null) {

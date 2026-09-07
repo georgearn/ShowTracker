@@ -1,11 +1,14 @@
 package com.arno.showtracker.ui.nav
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -13,6 +16,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -25,11 +31,13 @@ import com.arno.showtracker.ui.screens.foryou.ForYouScreen
 import com.arno.showtracker.ui.screens.home.HomeScreen
 import com.arno.showtracker.ui.screens.justdropped.JustDroppedScreen
 import com.arno.showtracker.ui.screens.notifications.NotificationsScreen
+import com.arno.showtracker.ui.screens.onboarding.OnboardingScreen
 import com.arno.showtracker.ui.screens.settings.SettingsScreen
 import com.arno.showtracker.ui.screens.upcoming.UpcomingScreen
 import com.arno.showtracker.ui.screens.watchlist.WatchlistScreen
 
 private object Routes {
+    const val ONBOARDING = "onboarding"
     const val HOME = "home"
     const val DISCOVER = "discover"
     const val WATCHLIST = "watchlist"
@@ -53,13 +61,24 @@ private val topLevelDestinations = listOf(
 
 @Composable
 fun ShowTrackerNavHost() {
+    val gateViewModel: OnboardingGateViewModel = hiltViewModel()
+    val needsOnboarding by gateViewModel.needsOnboarding.collectAsStateWithLifecycle()
+
+    val resolved = needsOnboarding
+    if (resolved == null) {
+        Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
+        }
+        return
+    }
+
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
     Scaffold(
         bottomBar = {
-            if (currentRoute == null || topLevelDestinations.any { it.route == currentRoute }) {
+            if (currentRoute != null && topLevelDestinations.any { it.route == currentRoute }) {
                 NavigationBar {
                     topLevelDestinations.forEach { dest ->
                         NavigationBarItem(
@@ -81,9 +100,18 @@ fun ShowTrackerNavHost() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = Routes.HOME,
+            startDestination = if (resolved) Routes.ONBOARDING else Routes.HOME,
             modifier = androidx.compose.ui.Modifier.padding(padding)
         ) {
+            composable(Routes.ONBOARDING) {
+                OnboardingScreen(
+                    onDone = {
+                        navController.navigate(Routes.HOME) {
+                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                        }
+                    }
+                )
+            }
             composable(Routes.HOME) {
                 HomeScreen(
                     onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) },

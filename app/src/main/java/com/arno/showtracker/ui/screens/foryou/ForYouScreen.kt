@@ -93,6 +93,17 @@ private fun QuizStage(state: ForYouState, viewModel: ForYouViewModel) {
                 }
             }
         }
+        if (state.genreOptions.isNotEmpty()) {
+            QuizQuestionCard(title = "Any specific genres?") {
+                WrapChips(state.genreOptions) { genre ->
+                    FilterChip(
+                        selected = genre in state.selectedGenres,
+                        onClick = { viewModel.toggleGenre(genre) },
+                        label = { Text(genre) }
+                    )
+                }
+            }
+        }
         Button(onClick = viewModel::startRecs, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
             Text("Get My Picks")
         }
@@ -118,6 +129,32 @@ private fun QuizQuestionCard(title: String, content: @Composable () -> Unit) {
 @Composable
 private fun MoodOption(label: String, mood: SuggestionMood, selected: SuggestionMood, onSelect: (SuggestionMood) -> Unit) {
     FilterChip(selected = selected == mood, onClick = { onSelect(mood) }, label = { Text(label) })
+}
+
+/** Wraps chip-like items onto multiple rows without needing a FlowRow dependency. */
+@Composable
+private fun WrapChips(items: List<String>, chip: @Composable (String) -> Unit) {
+    val rows = mutableListOf<MutableList<String>>()
+    var currentLen = 0
+    var currentRow = mutableListOf<String>()
+    items.forEach { label ->
+        if (currentLen + label.length > 28 && currentRow.isNotEmpty()) {
+            rows.add(currentRow)
+            currentRow = mutableListOf()
+            currentLen = 0
+        }
+        currentRow.add(label)
+        currentLen += label.length
+    }
+    if (currentRow.isNotEmpty()) rows.add(currentRow)
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        rows.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                row.forEach { chip(it) }
+            }
+        }
+    }
 }
 
 @Composable
@@ -165,20 +202,54 @@ private fun SwipeStage(
 @Composable
 private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
     val isUpcoming = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.UPCOMING
+    val genres = item.genres.split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3)
     Card(
         modifier = modifier.width(300.dp),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
         Column {
-            AsyncImage(
-                model = imageUrl(item.posterPath),
-                contentDescription = item.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f).clip(RoundedCornerShape(0.dp))
-            )
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box {
+                AsyncImage(
+                    model = imageUrl(item.posterPath),
+                    contentDescription = item.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f).clip(RoundedCornerShape(0.dp))
+                )
+                if (!item.imdbRating.isNullOrBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(12.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.65f))
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            "★ ${item.imdbRating.removeSuffix("/10")}",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.surface
+                        )
+                    }
+                }
+            }
+            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleLarge)
+                if (genres.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        genres.forEach { genre ->
+                            Text(
+                                genre,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(MaterialTheme.colorScheme.secondaryContainer)
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
                 if (isUpcoming) {
                     Text("Releases ${DateUtils.formatForDisplay(item.releaseDate)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 } else {

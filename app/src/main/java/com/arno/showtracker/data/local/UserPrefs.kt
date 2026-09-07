@@ -23,6 +23,8 @@ class UserPrefs @Inject constructor(private val context: Context) {
         val DYNAMIC_COLOR = booleanPreferencesKey("dynamic_color") // Monet on/off
         val WATCH_REGION = stringPreferencesKey("watch_region")    // ISO country for JustWatch/TMDB providers
         val BLOCKED_COUNTRIES = stringSetPreferencesKey("blocked_origin_countries") // ISO country codes to hide
+        val PREFERRED_GENRES = stringSetPreferencesKey("preferred_genre_ids") // TMDB genre ids, as strings
+        val HAS_ONBOARDED = booleanPreferencesKey("has_onboarded")
     }
 
     val blockedCountries: Flow<Set<String>> = context.dataStore.data.map { it[Keys.BLOCKED_COUNTRIES] ?: emptySet() }
@@ -32,6 +34,24 @@ class UserPrefs @Inject constructor(private val context: Context) {
             val current = prefs[Keys.BLOCKED_COUNTRIES] ?: emptySet()
             prefs[Keys.BLOCKED_COUNTRIES] = if (blocked) current + code else current - code
         }
+    }
+
+    suspend fun setBlockedCountries(codes: Set<String>) {
+        context.dataStore.edit { it[Keys.BLOCKED_COUNTRIES] = codes }
+    }
+
+    val preferredGenreIds: Flow<Set<Int>> = context.dataStore.data.map { prefs ->
+        prefs[Keys.PREFERRED_GENRES]?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
+    }
+
+    suspend fun setPreferredGenreIds(ids: Set<Int>) {
+        context.dataStore.edit { it[Keys.PREFERRED_GENRES] = ids.map { id -> id.toString() }.toSet() }
+    }
+
+    val hasOnboarded: Flow<Boolean> = context.dataStore.data.map { it[Keys.HAS_ONBOARDED] ?: false }
+
+    suspend fun setOnboarded() {
+        context.dataStore.edit { it[Keys.HAS_ONBOARDED] = true }
     }
 
     val themeMode: Flow<ThemeMode> = context.dataStore.data.map { prefs ->

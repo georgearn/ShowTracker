@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -31,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.arno.showtracker.data.model.MediaSummary
 import com.arno.showtracker.ui.screens.common.OverlayIcon
 import com.arno.showtracker.ui.screens.common.PosterOverlayCard
 
@@ -41,7 +40,7 @@ fun JustDroppedScreen(
     onOpenDetail: (Int, String) -> Unit,
     viewModel: JustDroppedViewModel = hiltViewModel()
 ) {
-    val items by viewModel.items.collectAsStateWithLifecycle()
+    val sections by viewModel.sections.collectAsStateWithLifecycle()
     val typeFilter by viewModel.typeFilter.collectAsStateWithLifecycle()
     val genreFilter by viewModel.genreFilter.collectAsStateWithLifecycle()
     val availableGenres by viewModel.availableGenres.collectAsStateWithLifecycle()
@@ -96,34 +95,61 @@ fun JustDroppedScreen(
             Box(Modifier.fillMaxSize()) {
                 when {
                     isLoading -> CircularProgressIndicator(Modifier.align(Alignment.TopCenter))
-                    items.isEmpty() -> Text(
+                    sections.isEmpty() -> Text(
                         "Nothing matches these filters.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    else -> LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    else -> LazyColumn(
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        items(items, key = { it.tmdbId }) { item ->
-                            val scoreCaption = listOfNotNull(
-                                item.imdbRating?.let { "IMDb ${it.removeSuffix("/10")}" },
-                                item.rottenTomatoesScore?.let { "RT $it" }
-                            ).joinToString(" · ").ifBlank { null }
-                            PosterOverlayCard(
-                                item = item,
-                                isOn = savedIds.contains(item.tmdbId),
-                                overlayIcon = OverlayIcon.ADD,
-                                caption = scoreCaption,
-                                onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
-                                onOverlayClick = { viewModel.toggleWatchlist(item) }
-                            )
+                        sections.forEach { (type, sectionItems) ->
+                            item {
+                                Text(
+                                    "${if (type.apiValue == "movie") "Movies" else "Series"} (${sectionItems.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(top = 12.dp, bottom = 10.dp)
+                                )
+                            }
+                            sectionItems.chunked(3).forEach { row ->
+                                item {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        row.forEach { media -> JustDroppedCard(media, savedIds.contains(media.tmdbId), onOpenDetail, viewModel, Modifier.weight(1f)) }
+                                        repeat(3 - row.size) { Box(Modifier.weight(1f)) }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun JustDroppedCard(
+    item: MediaSummary,
+    isSaved: Boolean,
+    onOpenDetail: (Int, String) -> Unit,
+    viewModel: JustDroppedViewModel,
+    modifier: Modifier = Modifier
+) {
+    val scoreCaption = listOfNotNull(
+        item.imdbRating?.let { "IMDb ${it.removeSuffix("/10")}" },
+        item.rottenTomatoesScore?.let { "RT $it" }
+    ).joinToString(" · ").ifBlank { null }
+    PosterOverlayCard(
+        item = item,
+        isOn = isSaved,
+        overlayIcon = OverlayIcon.ADD,
+        caption = scoreCaption,
+        onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
+        onOverlayClick = { viewModel.toggleWatchlist(item) },
+        modifier = modifier
+    )
 }

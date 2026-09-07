@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -137,7 +138,7 @@ private fun HomeContent(
                     TextButton(onClick = onOpenUpcoming) { Text("See all") }
                 }
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(data.upcoming.take(12), key = { "u${it.tmdbId}" }) { item ->
@@ -146,10 +147,10 @@ private fun HomeContent(
                             item = item,
                             isOn = notifyIds.contains(item.tmdbId),
                             overlayIcon = OverlayIcon.NOTIFY,
-                            caption = if (days != null) "in ${days}d" else null,
+                            caption = if (days != null) "in ${days}d" else DateUtils.formatForDisplay(item.releaseDate),
                             onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
                             onOverlayClick = { onToggleNotify(item) },
-                            modifier = Modifier.size(width = 110.dp, height = 190.dp)
+                            modifier = Modifier.width(110.dp)
                         )
                     }
                 }

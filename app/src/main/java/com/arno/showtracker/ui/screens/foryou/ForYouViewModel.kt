@@ -25,6 +25,8 @@ data class ForYouState(
     val mood: SuggestionMood = SuggestionMood.ANYTHING,
     val quizType: QuizType = QuizType.EITHER,
     val length: LengthPref = LengthPref.ANY,
+    val genreOptions: List<String> = emptyList(),
+    val selectedGenres: Set<String> = emptySet(),
     val queue: List<WatchlistEntity> = emptyList(),
     val index: Int = 0
 ) {
@@ -40,6 +42,13 @@ class ForYouViewModel @Inject constructor(
     private val _state = MutableStateFlow(ForYouState())
     val state: StateFlow<ForYouState> = _state
 
+    init {
+        viewModelScope.launch {
+            val names = repository.genreNames().values.distinct().sorted()
+            _state.value = _state.value.copy(genreOptions = names)
+        }
+    }
+
     fun setMood(mood: SuggestionMood) {
         _state.value = _state.value.copy(mood = mood)
     }
@@ -52,10 +61,16 @@ class ForYouViewModel @Inject constructor(
         _state.value = _state.value.copy(length = length)
     }
 
+    fun toggleGenre(genre: String) {
+        val current = _state.value.selectedGenres
+        _state.value = _state.value.copy(selectedGenres = if (genre in current) current - genre else current + genre)
+    }
+
     fun startRecs() {
         viewModelScope.launch {
-            val queue = repository.suggestionQueue(_state.value.mood, _state.value.quizType.mediaType, _state.value.length)
-            _state.value = _state.value.copy(stage = RecStage.SWIPE, queue = queue, index = 0)
+            val s = _state.value
+            val queue = repository.suggestionQueue(s.mood, s.quizType.mediaType, s.length, s.selectedGenres.ifEmpty { null })
+            _state.value = s.copy(stage = RecStage.SWIPE, queue = queue, index = 0)
         }
     }
 
@@ -71,6 +86,7 @@ class ForYouViewModel @Inject constructor(
                 mood = mood,
                 quizType = type,
                 length = length,
+                selectedGenres = emptySet(),
                 queue = queue,
                 index = 0
             )
@@ -79,8 +95,9 @@ class ForYouViewModel @Inject constructor(
 
     fun reshuffle() {
         viewModelScope.launch {
-            val queue = repository.suggestionQueue(_state.value.mood, _state.value.quizType.mediaType, _state.value.length)
-            _state.value = _state.value.copy(queue = queue, index = 0)
+            val s = _state.value
+            val queue = repository.suggestionQueue(s.mood, s.quizType.mediaType, s.length, s.selectedGenres.ifEmpty { null })
+            _state.value = s.copy(queue = queue, index = 0)
         }
     }
 

@@ -2,6 +2,7 @@ package com.arno.showtracker.ui.screens.discover
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arno.showtracker.data.local.ContentRefreshBus
 import com.arno.showtracker.data.model.MediaSummary
 import com.arno.showtracker.data.model.MediaType
 import com.arno.showtracker.data.repository.MediaRepository
@@ -29,7 +30,8 @@ enum class DiscoverFilter(val label: String, val type: MediaType?) {
 @OptIn(FlowPreview::class)
 @HiltViewModel
 class DiscoverViewModel @Inject constructor(
-    private val repository: MediaRepository
+    private val repository: MediaRepository,
+    private val refreshBus: ContentRefreshBus
 ) : ViewModel() {
 
     private val _query = MutableStateFlow("")
@@ -57,6 +59,7 @@ class DiscoverViewModel @Inject constructor(
             .distinctUntilChanged()
             .onEach { q -> runSearch(q) }
             .launchIn(viewModelScope)
+        refreshBus.events.onEach { runSearch(_query.value) }.launchIn(viewModelScope)
     }
 
     fun onQueryChange(newQuery: String) {

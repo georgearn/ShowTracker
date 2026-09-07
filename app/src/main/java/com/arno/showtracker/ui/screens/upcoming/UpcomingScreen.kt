@@ -5,10 +5,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -27,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.arno.showtracker.data.model.MediaSummary
 import com.arno.showtracker.ui.screens.common.OverlayIcon
 import com.arno.showtracker.ui.screens.common.PosterOverlayCard
 import com.arno.showtracker.util.DateUtils
@@ -38,9 +38,8 @@ fun UpcomingScreen(
     onOpenDetail: (Int, String) -> Unit,
     viewModel: UpcomingViewModel = hiltViewModel()
 ) {
-    val items by viewModel.items.collectAsStateWithLifecycle()
+    val sections by viewModel.sections.collectAsStateWithLifecycle()
     val filter by viewModel.filter.collectAsStateWithLifecycle()
-    val window by viewModel.window.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val notifyIds by viewModel.notifyIds.collectAsStateWithLifecycle()
 
@@ -57,7 +56,7 @@ fun UpcomingScreen(
     ) { padding ->
         androidx.compose.foundation.layout.Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp)) {
             Row(
-                modifier = Modifier.padding(top = 12.dp),
+                modifier = Modifier.padding(top = 12.dp, bottom = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 UpcomingFilter.entries.forEach { f ->
@@ -68,46 +67,69 @@ fun UpcomingScreen(
                     )
                 }
             }
-            Row(
-                modifier = Modifier.padding(top = 8.dp, bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                UpcomingWindow.entries.forEach { w ->
-                    FilterChip(
-                        selected = window == w,
-                        onClick = { viewModel.setWindow(w) },
-                        label = { Text(w.label) }
-                    )
-                }
-            }
 
             Box(Modifier.fillMaxSize()) {
                 when {
                     isLoading -> CircularProgressIndicator(Modifier.align(Alignment.TopCenter))
-                    items.isEmpty() -> Text(
+                    sections.isEmpty() -> Text(
                         "Nothing upcoming right now.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    else -> LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
-                        contentPadding = PaddingValues(bottom = 24.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    else -> LazyColumn(
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        items(items, key = { it.tmdbId }) { item ->
-                            val days = DateUtils.daysUntil(item.releaseDate)
-                            PosterOverlayCard(
-                                item = item,
-                                isOn = notifyIds.contains(item.tmdbId),
-                                overlayIcon = OverlayIcon.NOTIFY,
-                                caption = if (days != null) "in ${days}d · ${DateUtils.formatForDisplay(item.releaseDate)}" else DateUtils.formatForDisplay(item.releaseDate),
-                                onClick = { onOpenDetail(item.tmdbId, item.mediaType.apiValue) },
-                                onOverlayClick = { viewModel.toggleNotify(item) }
-                            )
+                        sections.forEach { (window, items) ->
+                            item {
+                                Text(
+                                    "${window.label} (${items.size})",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    modifier = Modifier.padding(top = 12.dp, bottom = 10.dp)
+                                )
+                            }
+                            items.chunked(2).forEach { row ->
+                                item {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        row.forEach { media ->
+                                            UpcomingCard(
+                                                item = media,
+                                                isOn = notifyIds.contains(media.tmdbId),
+                                                onClick = { onOpenDetail(media.tmdbId, media.mediaType.apiValue) },
+                                                onToggle = { viewModel.toggleNotify(media) },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        if (row.size < 2) Box(Modifier.weight(1f))
+                                    }
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun UpcomingCard(
+    item: MediaSummary,
+    isOn: Boolean,
+    onClick: () -> Unit,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val days = DateUtils.daysUntil(item.releaseDate)
+    PosterOverlayCard(
+        item = item,
+        isOn = isOn,
+        overlayIcon = OverlayIcon.NOTIFY,
+        caption = if (days != null) "in ${days}d · ${DateUtils.formatForDisplay(item.releaseDate)}" else DateUtils.formatForDisplay(item.releaseDate),
+        onClick = onClick,
+        onOverlayClick = onToggle,
+        modifier = modifier
+    )
 }

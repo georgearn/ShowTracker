@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +47,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val dynamicColor by viewModel.dynamicColorEnabled.collectAsStateWithLifecycle()
     val region by viewModel.watchRegion.collectAsStateWithLifecycle()
     val blockedCountries by viewModel.blockedCountries.collectAsStateWithLifecycle()
+    val pendingRefresh by viewModel.pendingRefresh.collectAsStateWithLifecycle()
     var countrySearch by remember { mutableStateOf("") }
     var expandedContinents by remember { mutableStateOf(setOf<String>()) }
 
@@ -146,6 +149,13 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                     singleLine = true,
                     modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
                 )
+                Button(
+                    onClick = viewModel::refreshContent,
+                    modifier = Modifier.padding(top = 12.dp).fillMaxWidth()
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text(if (pendingRefresh) "Refresh content (new filters pending)" else "Refresh content")
+                }
             }
 
             val filtered = Countries.ALL.filter { it.displayName.contains(countrySearch, ignoreCase = true) }

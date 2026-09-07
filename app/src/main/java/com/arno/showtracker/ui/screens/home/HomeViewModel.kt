@@ -2,6 +2,7 @@ package com.arno.showtracker.ui.screens.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arno.showtracker.data.local.ContentRefreshBus
 import com.arno.showtracker.data.model.MediaSummary
 import com.arno.showtracker.data.repository.MediaRepository
 import com.arno.showtracker.util.UiState
@@ -9,7 +10,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -21,7 +24,8 @@ data class HomeData(
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repository: MediaRepository
+    private val repository: MediaRepository,
+    private val refreshBus: ContentRefreshBus
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<UiState<HomeData>>(UiState.Loading)
@@ -43,6 +47,7 @@ class HomeViewModel @Inject constructor(
 
     init {
         load()
+        refreshBus.events.onEach { load() }.launchIn(viewModelScope)
     }
 
     fun load() {
