@@ -5,6 +5,7 @@ import com.georgearn.showtracker.data.local.Countries
 import com.georgearn.showtracker.data.local.UserPrefs
 import com.georgearn.showtracker.data.local.WatchlistDao
 import com.georgearn.showtracker.data.local.WatchlistEntity
+import com.georgearn.showtracker.data.model.CastMember
 import com.georgearn.showtracker.data.model.MediaDetail
 import com.georgearn.showtracker.data.model.MediaSummary
 import com.georgearn.showtracker.data.model.MediaType
@@ -105,7 +106,7 @@ class MediaRepository @Inject constructor(
 
     private fun List<MediaSummary>.filterNotBlocked(blocked: Set<String>): List<MediaSummary> {
         if (blocked.isEmpty()) return this
-        val blockedLanguages = Countries.languagesFor(blocked)
+        val blockedLanguages = Countries.blockableLanguages(blocked)
         return filter { item ->
             val blockedByCountry = item.originCountries.any { it in blocked }
             // Movie list results don't carry origin_country from TMDB - fall back to original_language.
@@ -180,7 +181,11 @@ class MediaRepository @Inject constructor(
             rottenTomatoesScore = rtScore,
             watchProviders = buildProviderList(providers),
             watchProvidersRegion = region,
-            releaseStatus = DateUtils.releaseStatus(detail.resolvedDate)
+            releaseStatus = DateUtils.releaseStatus(detail.resolvedDate),
+            cast = detail.credits?.cast.orEmpty()
+                .sortedBy { it.order }
+                .take(15)
+                .map { CastMember(it.name, it.character, it.profilePath) }
         )
     }
 

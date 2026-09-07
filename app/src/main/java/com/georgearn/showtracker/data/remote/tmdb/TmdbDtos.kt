@@ -61,13 +61,28 @@ data class TmdbDetailResponse(
     @Json(name = "vote_average") val voteAverage: Double? = null,
     @Json(name = "imdb_id") val imdbId: String? = null, // present directly on movie detail
     @Json(name = "external_ids") val externalIds: TmdbExternalIds? = null, // present via append_to_response on tv
-    @Json(name = "watch/providers") val watchProviders: TmdbWatchProvidersWrapper? = null
+    @Json(name = "watch/providers") val watchProviders: TmdbWatchProvidersWrapper? = null,
+    val credits: TmdbCredits? = null // present via append_to_response on both movie and tv
 ) {
     val resolvedTitle: String get() = title ?: name ?: "Untitled"
     val resolvedDate: String? get() = releaseDate ?: firstAirDate
     val resolvedRuntime: Int? get() = runtime ?: episodeRunTime?.firstOrNull()
     val resolvedImdbId: String? get() = imdbId ?: externalIds?.imdbId
 }
+
+@JsonClass(generateAdapter = true)
+data class TmdbCredits(
+    val cast: List<TmdbCastMember> = emptyList()
+)
+
+@JsonClass(generateAdapter = true)
+data class TmdbCastMember(
+    val id: Int,
+    val name: String,
+    val character: String? = null,
+    @Json(name = "profile_path") val profilePath: String? = null,
+    val order: Int = Int.MAX_VALUE
+)
 
 @JsonClass(generateAdapter = true)
 data class TmdbWatchProvidersWrapper(

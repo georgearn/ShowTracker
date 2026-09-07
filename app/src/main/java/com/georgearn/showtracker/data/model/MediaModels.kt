@@ -33,7 +33,14 @@ data class MediaDetail(
     val rottenTomatoesScore: String?, // e.g. "91%" or null if not found
     val watchProviders: List<WatchProvider>,
     val watchProvidersRegion: String,
-    val releaseStatus: ReleaseStatus
+    val releaseStatus: ReleaseStatus,
+    val cast: List<CastMember> = emptyList()
+)
+
+data class CastMember(
+    val name: String,
+    val character: String?,
+    val profilePath: String?
 )
 
 data class WatchProvider(

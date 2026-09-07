@@ -7,11 +7,15 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.background
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.BookmarkAdd
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.georgearn.showtracker.data.model.CastMember
 import com.georgearn.showtracker.data.model.MediaDetail
 import com.georgearn.showtracker.data.model.ReleaseStatus
 import com.georgearn.showtracker.data.repository.imageUrl
@@ -141,6 +146,22 @@ private fun DetailsContent(detail: MediaDetail, isSaved: Boolean, onToggleSaved:
         )
         Text(detail.synopsis, style = MaterialTheme.typography.bodyLarge)
 
+        if (detail.cast.isNotEmpty()) {
+            Text(
+                "Cast",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 24.dp, bottom = 6.dp)
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+            ) {
+                detail.cast.forEach { member -> CastMemberCard(member) }
+            }
+        }
+
         if (detail.watchProviders.isNotEmpty()) {
             Text(
                 "Where to watch (${detail.watchProvidersRegion})",
@@ -167,5 +188,43 @@ private fun DetailsContent(detail: MediaDetail, isSaved: Boolean, onToggleSaved:
         }
 
         androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 32.dp))
+    }
+}
+
+@Composable
+private fun CastMemberCard(member: CastMember) {
+    Column(modifier = Modifier.width(80.dp)) {
+        val photoUrl = imageUrl(member.profilePath, size = "w185")
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+        ) {
+            if (photoUrl != null) {
+                AsyncImage(
+                    model = photoUrl,
+                    contentDescription = member.name,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                )
+            }
+        }
+        Text(
+            member.name,
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        if (!member.character.isNullOrBlank()) {
+            Text(
+                member.character,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+            )
+        }
     }
 }
