@@ -98,7 +98,7 @@ fun DiscoverScreen(
                 results.isEmpty() -> Text("No matches for \"$query\".", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 else -> LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
-                    contentPadding = PaddingValues(bottom = 24.dp),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
