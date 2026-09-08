@@ -185,7 +185,7 @@ private fun SwipeStage(
                 }
             }
             current != null -> Column(
-                Modifier.fillMaxSize().padding(top = 8.dp),
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
