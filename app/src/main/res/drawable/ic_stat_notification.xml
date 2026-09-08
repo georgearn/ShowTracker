@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="512" android:viewportHeight="512">
+    <!-- Status-bar icon: just the play/film card silhouette, scaled to fill the canvas
+         (unlike the launcher foreground, which is deliberately shrunk into the adaptive-icon
+         safe zone and reads as a tiny speck at notification size). -->
+    <group
+        android:scaleX="1.215"
+        android:scaleY="1.215"
+        android:pivotX="181"
+        android:pivotY="236"
+        android:translateX="75"
+        android:translateY="20">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="m362.66 142.22h-256c-19.621 0-35.559 15.922-35.559 35.559v170.66c0 19.621 15.922 35.559 35.559 35.559h171.38c-0.5-5.8398-0.71875-11.738-0.71875-17.559v-3.7617c0-11.602 5.4805-22.039 14.359-28.578 0.64062-6.8203 3.0586-13.301 6.9609-18.84 0.64062-20.98 17.922-37.898 39.121-37.898 1.1992 0 2.4805 0.078125 3.6992 0.14062 1.6992-19.98 18.559-35.699 38.961-35.699 6.2617 0 12.301 1.5 17.781 4.3398v-68.34c0-19.621-15.922-35.559-35.559-35.559zm-87.598 137.82-48.141 30.078c-2.9219 1.8398-6.2617 2.7812-9.6797 2.7812-9.9609 0-18.141-8.1797-18.141-18.141v-63.277c0-9.9609 8.1797-18.141 18.141-18.141 3.4219 0 6.7617 0.92188 9.6797 2.7812l48.141 30.078c5.8984 3.6992 9.3789 10.02 9.3789 16.922 0 6.8984-3.4805 13.219-9.3789 16.922z" />
+    </group>
+</vector>
