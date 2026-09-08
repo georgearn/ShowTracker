@@ -15,12 +15,14 @@ val localProps = Properties().apply {
 
 android {
     namespace = "com.georgearn.showtracker"
-    compileSdk = 37
+    // API 37 doesn't exist yet (latest stable is 36 / Android 16) and isn't installed
+    // on the CI runner's SDK anyway - bump this once it ships.
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.georgearn.showtracker"
         minSdk = 31 // Android 12 (required floor for Monet/dynamic color anyway)
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
