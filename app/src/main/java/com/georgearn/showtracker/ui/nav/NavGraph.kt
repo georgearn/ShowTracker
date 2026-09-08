@@ -52,6 +52,8 @@ private object Routes {
 
 private data class TopLevelDestination(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
+data class DeepLinkTarget(val tmdbId: Int, val mediaType: String)
+
 private val topLevelDestinations = listOf(
     TopLevelDestination(Routes.HOME, "Home", Icons.Default.Home),
     TopLevelDestination(Routes.DISCOVER, "Discover", Icons.Default.Explore),
@@ -60,7 +62,10 @@ private val topLevelDestinations = listOf(
 )
 
 @Composable
-fun ShowTrackerNavHost() {
+fun ShowTrackerNavHost(
+    deepLinkTarget: DeepLinkTarget? = null,
+    onDeepLinkConsumed: () -> Unit = {}
+) {
     val gateViewModel: OnboardingGateViewModel = hiltViewModel()
     val needsOnboarding by gateViewModel.needsOnboarding.collectAsStateWithLifecycle()
 
@@ -75,6 +80,13 @@ fun ShowTrackerNavHost() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+
+    androidx.compose.runtime.LaunchedEffect(deepLinkTarget) {
+        if (deepLinkTarget != null) {
+            navController.navigate(Routes.details(deepLinkTarget.tmdbId, deepLinkTarget.mediaType))
+            onDeepLinkConsumed()
+        }
+    }
 
     Scaffold(
         bottomBar = {

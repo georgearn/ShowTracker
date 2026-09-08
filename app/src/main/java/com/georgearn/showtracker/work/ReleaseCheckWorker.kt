@@ -42,7 +42,7 @@ class ReleaseCheckWorker @AssistedInject constructor(
                 val nowReleased = detail.releaseStatus == ReleaseStatus.RELEASED
 
                 if (wasUpcoming && nowReleased) {
-                    NotificationHelper.notifyReleased(applicationContext, item.tmdbId, item.title)
+                    NotificationHelper.notifyReleased(applicationContext, item.tmdbId, item.mediaType, item.title)
                     watchlistDao.markNotified(item.tmdbId)
                 }
                 watchlistDao.updateStatus(item.tmdbId, detail.releaseStatus.name)
