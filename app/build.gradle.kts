@@ -15,15 +15,12 @@ val localProps = Properties().apply {
 
 android {
     namespace = "com.georgearn.showtracker"
-    // compileSdk/targetSdk 36 = Android 16, current latest stable at time of writing.
-    // Bump to Android 17's API level in build.gradle.kts + settings.gradle.kts once that
-    // platform + AGP version ships and is installed in your SDK manager.
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.georgearn.showtracker"
         minSdk = 31 // Android 12 (required floor for Monet/dynamic color anyway)
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 

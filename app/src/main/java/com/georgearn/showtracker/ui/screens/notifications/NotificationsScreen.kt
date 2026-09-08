@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -80,7 +81,7 @@ fun NotificationsScreen(
 
 @Composable
 private fun NotificationRow(item: WatchlistEntity, onOpenDetail: (Int, String) -> Unit) {
-    Card(modifier = Modifier.clickable { onOpenDetail(item.tmdbId, item.mediaType) }) {
+    Card(modifier = Modifier.fillMaxWidth().clickable { onOpenDetail(item.tmdbId, item.mediaType) }) {
         Row(modifier = Modifier.padding(12.dp)) {
             AsyncImage(
                 model = imageUrl(item.posterPath),
