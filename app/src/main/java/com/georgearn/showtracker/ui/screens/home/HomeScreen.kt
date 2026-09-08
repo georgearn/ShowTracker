@@ -63,7 +63,6 @@ fun HomeScreen(
             verticalAlignment = Alignment.Top
         ) {
             Column {
-                Text("Good evening", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("New Releases", style = MaterialTheme.typography.headlineSmall)
             }
             Row {

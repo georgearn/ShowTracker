@@ -4,6 +4,7 @@ import com.georgearn.showtracker.data.model.ReleaseStatus
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.util.Locale
 
 object DateUtils {
     private val ISO: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
@@ -32,6 +33,6 @@ object DateUtils {
 
     fun formatForDisplay(iso: String?): String {
         val date = parseOrNull(iso) ?: return "TBA"
-        return date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+        return date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH))
     }
 }
