@@ -20,7 +20,6 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ShowTrackerDatabase =
         Room.databaseBuilder(context, ShowTrackerDatabase::class.java, ShowTrackerDatabase.DB_NAME)
-            .fallbackToDestructiveMigration()
             .build()
 
     @Provides
