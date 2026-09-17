@@ -102,7 +102,7 @@ fun DiscoverScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(results, key = { it.tmdbId }) { item ->
+                    items(results, key = { "${it.mediaType}${it.tmdbId}" }) { item ->
                         PosterOverlayCard(
                             item = item,
                             isOn = savedIds.contains(item.tmdbId),

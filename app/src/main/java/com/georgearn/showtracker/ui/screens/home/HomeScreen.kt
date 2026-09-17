@@ -176,7 +176,7 @@ private fun UpcomingTimeline(
                     modifier = Modifier.padding(top = 14.dp, bottom = 6.dp)
                 )
             }
-            items(bucketItems, key = { "u${it.tmdbId}" }) { item ->
+            items(bucketItems, key = { "u${it.mediaType}${it.tmdbId}" }) { item ->
                 TimelineRow(
                     item = item,
                     isLast = bucketItems.last() == item,
@@ -301,7 +301,7 @@ private fun NewReleasesList(
                 TextButton(onClick = onSeeAll) { Text("See all") }
             }
         }
-        items(items, key = { "d${it.tmdbId}" }) { item ->
+        items(items, key = { "d${it.mediaType}${it.tmdbId}" }) { item ->
             NewReleaseRow(
                 item = item,
                 isSaved = savedIds.contains(item.tmdbId),

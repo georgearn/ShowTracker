@@ -73,13 +73,21 @@ class MediaRepository @Inject constructor(
      * Home feed: titles released in the last [windowDays] days across movies + tv, newest first,
      * with IMDb/RT scores merged in (OMDb lookups capped at [ratingsCap] to bound request fan-out).
      */
-    suspend fun recentlyReleased(windowDays: Long = 30, ratingsCap: Int = 24): List<MediaSummary> {
+    suspend fun recentlyReleased(windowDays: Long = 30, ratingsCap: Int = 24, pagesPerType: Int = 5): List<MediaSummary> {
         val today = DateUtils.todayIso()
         val since = DateUtils.isoDaysAgo(windowDays)
         val blocked = userPrefs.blockedCountries.first()
         val preferredGenres = userPrefs.preferredGenreIds.first()
-        val movies = tmdbApi.discoverMovieReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.MOVIE) }
-        val tv = tmdbApi.discoverTvReleased(lte = today, gte = since).results.map { it.toSummary(MediaType.TV) }
+        val movies = coroutineScope {
+            (1..pagesPerType).map { page ->
+                async { tmdbApi.discoverMovieReleased(lte = today, gte = since, page = page).results }
+            }.awaitAll()
+        }.flatten().map { it.toSummary(MediaType.MOVIE) }
+        val tv = coroutineScope {
+            (1..pagesPerType).map { page ->
+                async { tmdbApi.discoverTvReleased(lte = today, gte = since, page = page).results }
+            }.awaitAll()
+        }.flatten().map { it.toSummary(MediaType.TV) }
         val combined = (movies + tv).sortedByDescending { it.releaseDate }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
