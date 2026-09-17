@@ -36,7 +36,7 @@ scheduled a notification for a date that then changed.
 
 ## Project layout
 ```
-app/src/main/java/com/arno/showtracker/
+app/src/main/java/com/georgearn/showtracker/
   data/local        Room entity/DAO/DB, DataStore prefs
   data/remote       TMDB + OMDb Retrofit interfaces & DTOs
   data/repository   MediaRepository - merges TMDB + OMDb, owns watchlist CRUD + suggestion logic
