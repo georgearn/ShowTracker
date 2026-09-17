@@ -33,10 +33,25 @@ android {
         buildConfigField("String", "TMDB_READ_ACCESS_TOKEN", "\"${localProps.getProperty("TMDB_READ_ACCESS_TOKEN", "")}\"")
     }
 
+    signingConfigs {
+        create("release") {
+            // Local dev: set these in local.properties. CI: RELEASE_KEYSTORE_PATH/PASSWORD env vars
+            // (workflow decodes the ANDROID_KEYSTORE_BASE64 secret to a temp file and points here).
+            val path = localProps.getProperty("RELEASE_KEYSTORE_PATH") ?: System.getenv("RELEASE_KEYSTORE_PATH")
+            if (!path.isNullOrBlank()) {
+                storeFile = file(path)
+                storePassword = localProps.getProperty("RELEASE_KEYSTORE_PASSWORD") ?: System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = "androidrelease"
+                keyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD") ?: System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfigs.getByName("release").storeFile?.let { signingConfig = signingConfigs.getByName("release") }
         }
         debug {
             isMinifyEnabled = false
