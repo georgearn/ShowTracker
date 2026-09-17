@@ -1,12 +1,16 @@
 package com.georgearn.showtracker.ui.screens.details
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.verticalScroll
@@ -18,21 +22,25 @@ import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.BookmarkRemove
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -55,47 +63,93 @@ fun DetailsScreen(
     val isSaved by viewModel.isSaved.collectAsStateWithLifecycle()
 
     Scaffold(
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                title = { Text("") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
-                }
-            )
-        }
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (val s = state) {
                 is UiState.Loading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
                 is UiState.Error -> Text(s.message, Modifier.align(Alignment.Center).padding(24.dp))
-                is UiState.Success -> DetailsContent(s.data, isSaved, viewModel::toggleSaved)
+                is UiState.Success -> DetailsContent(s.data, isSaved, viewModel::toggleSaved, onBack)
             }
         }
     }
 }
 
 @Composable
-private fun DetailsContent(detail: MediaDetail, isSaved: Boolean, onToggleSaved: (Boolean) -> Unit) {
+private fun DetailsContent(
+    detail: MediaDetail,
+    isSaved: Boolean,
+    onToggleSaved: (Boolean) -> Unit,
+    onBack: () -> Unit
+) {
     val isUpcoming = detail.releaseStatus == ReleaseStatus.UPCOMING
 
     Column(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(260.dp)
+        ) {
             AsyncImage(
-                model = imageUrl(detail.posterPath),
-                contentDescription = detail.title,
+                model = imageUrl(detail.backdropPath ?: detail.posterPath),
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .weight(1f)
-                    .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(16.dp))
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
             )
-            Column(Modifier.weight(2f)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.55f)),
+                            startY = 0.3f * 780f
+                        )
+                    )
+            )
+            IconButton(
+                onClick = onBack,
+                colors = IconButtonDefaults.iconButtonColors(containerColor = Color.Black.copy(alpha = 0.35f)),
+                modifier = Modifier
+                    .statusBarsPadding()
+                    .padding(12.dp)
+                    .align(Alignment.TopStart)
+            ) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            }
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .offset(y = (-48).dp)
+        ) {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                modifier = Modifier
+                    .size(width = 108.dp, height = 162.dp)
+            ) {
+                AsyncImage(
+                    model = imageUrl(detail.posterPath),
+                    contentDescription = detail.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(top = 58.dp)
+            ) {
                 Text(detail.title, style = MaterialTheme.typography.titleLarge)
                 Text(
                     "${DateUtils.formatForDisplay(detail.releaseDate)}" +
@@ -117,6 +171,7 @@ private fun DetailsContent(detail: MediaDetail, isSaved: Boolean, onToggleSaved:
             }
         }
 
+        Column(Modifier.padding(horizontal = 16.dp).offset(y = (-32).dp).padding(top = 8.dp)) {
         Button(
             onClick = { onToggleSaved(true) },
             modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
@@ -169,5 +224,6 @@ private fun DetailsContent(detail: MediaDetail, isSaved: Boolean, onToggleSaved:
         }
 
         androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 32.dp))
+        }
     }
 }
