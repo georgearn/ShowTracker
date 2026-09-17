@@ -88,7 +88,9 @@ class MediaRepository @Inject constructor(
                 async { tmdbApi.discoverTvReleased(lte = today, gte = since, page = page).results }
             }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.TV) }
-        val combined = (movies + tv).sortedByDescending { it.releaseDate }
+        val combined = (movies + tv)
+            .distinctBy { it.mediaType to it.tmdbId }
+            .sortedByDescending { it.releaseDate }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
@@ -112,7 +114,9 @@ class MediaRepository @Inject constructor(
         val tv = coroutineScope {
             (1..pages).map { page -> async { tmdbApi.discoverTvUpcoming(gte = today, page = page).results } }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.TV) }
-        return (movies + tv).sortedBy { it.releaseDate }
+        return (movies + tv)
+            .distinctBy { it.mediaType to it.tmdbId }
+            .sortedBy { it.releaseDate }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
