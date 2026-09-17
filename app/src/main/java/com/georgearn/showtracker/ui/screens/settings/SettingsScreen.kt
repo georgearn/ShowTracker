@@ -1,31 +1,45 @@
 package com.georgearn.showtracker.ui.screens.settings
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -37,6 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,154 +73,181 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     var expandedContinents by remember { mutableStateOf(setOf<String>()) }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, contentDescription = "Back") }
                 },
-                windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0)
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
     ) { padding ->
-        LazyColumn(modifier = Modifier.fillMaxWidth().padding(padding).padding(horizontal = 16.dp)) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(padding)
+                .padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
             item {
-                Text("Appearance", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 12.dp))
-            }
-            items(ThemeMode.entries) { mode ->
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .selectable(selected = themeMode == mode, onClick = { viewModel.setThemeMode(mode) })
-                        .padding(vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    RadioButton(selected = themeMode == mode, onClick = { viewModel.setThemeMode(mode) })
-                    Icon(
-                        imageVector = when (mode) {
-                            ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
-                            ThemeMode.LIGHT -> Icons.Default.LightMode
-                            ThemeMode.DARK -> Icons.Default.DarkMode
-                        },
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                    Text(
-                        when (mode) {
-                            ThemeMode.SYSTEM -> "Follow system"
-                            ThemeMode.LIGHT -> "Light"
-                            ThemeMode.DARK -> "Dark"
-                        },
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
-                }
-            }
-
-            item {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    androidx.compose.foundation.layout.Column(Modifier.weight(1f)) {
-                        Text("Use wallpaper colors (Monet)")
-                        Text(
-                            "Matches accent colors to your wallpaper, Android 12+",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                Column(Modifier.padding(top = 12.dp)) {
+                    SettingsSection(title = "Appearance") {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                "Theme",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                ThemeMode.entries.forEachIndexed { index, mode ->
+                                    SegmentedButton(
+                                        selected = themeMode == mode,
+                                        onClick = { viewModel.setThemeMode(mode) },
+                                        shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeMode.entries.size),
+                                        icon = {
+                                            Icon(
+                                                when (mode) {
+                                                    ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                                    ThemeMode.LIGHT -> Icons.Default.LightMode
+                                                    ThemeMode.DARK -> Icons.Default.DarkMode
+                                                },
+                                                contentDescription = null,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    ) {
+                                        Text(
+                                            when (mode) {
+                                                ThemeMode.SYSTEM -> "System"
+                                                ThemeMode.LIGHT -> "Light"
+                                                ThemeMode.DARK -> "Dark"
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        HorizontalDivider()
+                        ListItem(
+                            headlineContent = { Text("Wallpaper colors (Monet)") },
+                            supportingContent = { Text("Matches accent colors to your wallpaper · Android 12+") },
+                            leadingContent = {
+                                Icon(Icons.Default.Palette, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            trailingContent = {
+                                Switch(checked = dynamicColor, onCheckedChange = viewModel::setDynamicColor)
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
                         )
                     }
-                    Switch(checked = dynamicColor, onCheckedChange = viewModel::setDynamicColor)
-                }
 
-                Text("Region", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
-                Text(
-                    "Used to pick which streaming services show under \"Where to watch\"",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                OutlinedTextField(
-                    value = region,
-                    onValueChange = { viewModel.setWatchRegion(it.uppercase().take(2)) },
-                    label = { Text("ISO country code, e.g. US, GB, MD") },
-                    singleLine = true,
-                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
-                )
+                    SettingsSection(title = "Region", modifier = Modifier.padding(top = 20.dp)) {
+                        ListItem(
+                            headlineContent = { Text("Streaming region") },
+                            supportingContent = { Text("Used to pick which services show under \"Where to watch\"") },
+                            leadingContent = {
+                                Icon(Icons.Default.Public, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                        )
+                        OutlinedTextField(
+                            value = region,
+                            onValueChange = { viewModel.setWatchRegion(it.uppercase().take(2)) },
+                            label = { Text("ISO country code, e.g. US, GB, MD") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(bottom = 16.dp)
+                        )
+                    }
 
-                Text("Preferred Genres", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
-                Text(
-                    if (preferredGenreIds.isEmpty()) {
-                        "No genre filter set - Home and Just Dropped show everything. Pick genres to only show those."
-                    } else {
-                        "Only titles matching a selected genre show on Home and Just Dropped."
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (preferredGenreIds.isNotEmpty()) {
-                    OutlinedButton(
-                        onClick = viewModel::clearGenrePreference,
-                        modifier = Modifier.padding(top = 8.dp)
-                    ) { Text("Clear genre filter") }
-                }
-                SettingsWrapChips(
-                    modifier = Modifier.padding(top = 8.dp),
-                    items = genreOptions,
-                    isSelected = { preferredGenreIds.containsAll(it.ids) },
-                    label = { it.label },
-                    onClick = viewModel::toggleGenre
-                )
+                    SettingsSection(title = "Preferred Genres", modifier = Modifier.padding(top = 20.dp)) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                if (preferredGenreIds.isEmpty()) {
+                                    "No genre filter set - Home and Just Dropped show everything. Pick genres to only show those."
+                                } else {
+                                    "Only titles matching a selected genre show on Home and Just Dropped."
+                                },
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (preferredGenreIds.isNotEmpty()) {
+                                OutlinedButton(
+                                    onClick = viewModel::clearGenrePreference,
+                                    modifier = Modifier.padding(top = 8.dp)
+                                ) { Text("Clear genre filter") }
+                            }
+                            SettingsWrapChips(
+                                modifier = Modifier.padding(top = 8.dp),
+                                items = genreOptions,
+                                isSelected = { preferredGenreIds.containsAll(it.ids) },
+                                label = { it.label },
+                                onClick = viewModel::toggleGenre
+                            )
+                        }
+                    }
 
-                Text("Releasing Soon lookahead", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
-                Text(
-                    "How many pages of upcoming titles to fetch per type (movies/series), ~20 titles per page. " +
-                        "Higher values surface releases further in the future but take a bit longer to load.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    "$upcomingPages page${if (upcomingPages == 1) "" else "s"} · ~${upcomingPages * 20} titles per type",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                Slider(
-                    value = upcomingPages.toFloat(),
-                    onValueChange = { viewModel.setUpcomingPagesPerType(it.toInt()) },
-                    valueRange = 1f..15f,
-                    steps = 13,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                    SettingsSection(title = "Releasing Soon lookahead", modifier = Modifier.padding(top = 20.dp)) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                "How many pages of upcoming titles to fetch per type (movies/series), ~20 titles per page. " +
+                                    "Higher values surface releases further in the future but take a bit longer to load.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                "$upcomingPages page${if (upcomingPages == 1) "" else "s"} · ~${upcomingPages * 20} titles per type",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                            Slider(
+                                value = upcomingPages.toFloat(),
+                                onValueChange = { viewModel.setUpcomingPagesPerType(it.toInt()) },
+                                valueRange = 1f..15f,
+                                steps = 13,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
 
-                Text("Content Filters", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 24.dp))
-                Text(
-                    "Hide titles originating from selected countries, across Home, Discover and search. " +
-                        "Pick individual countries so you can still allow ones you like (e.g. South Korea).",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (blockedCountries.isNotEmpty()) {
-                    Text(
-                        "${blockedCountries.size} hidden",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-                OutlinedTextField(
-                    value = countrySearch,
-                    onValueChange = { countrySearch = it },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                    placeholder = { Text("Search countries") },
-                    singleLine = true,
-                    modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
-                )
-                Button(
-                    onClick = viewModel::refreshContent,
-                    modifier = Modifier.padding(top = 12.dp).fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-                    Text(if (pendingRefresh) "Refresh content (new filters pending)" else "Refresh content")
+                    SettingsSection(title = "Content Filters", modifier = Modifier.padding(top = 20.dp)) {
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text(
+                                "Hide titles originating from selected countries, across Home, Discover and search. " +
+                                    "Pick individual countries so you can still allow ones you like (e.g. South Korea).",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (blockedCountries.isNotEmpty()) {
+                                Text(
+                                    "${blockedCountries.size} hidden",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                            OutlinedTextField(
+                                value = countrySearch,
+                                onValueChange = { countrySearch = it },
+                                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                placeholder = { Text("Search countries") },
+                                singleLine = true,
+                                modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
+                            )
+                            Button(
+                                onClick = viewModel::refreshContent,
+                                modifier = Modifier.padding(top = 12.dp).fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                                Text(if (pendingRefresh) "Refresh content (new filters pending)" else "Refresh content")
+                            }
+                        }
+                    }
                 }
             }
 
@@ -226,7 +268,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                                     expandedContinents + continent
                                 }
                             }
-                            .padding(top = 14.dp, bottom = 4.dp),
+                            .padding(top = 4.dp, bottom = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -267,8 +309,40 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
             }
 
             item {
-                androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 32.dp))
+                SettingsSection(title = "About", modifier = Modifier.padding(top = 20.dp, bottom = 32.dp)) {
+                    ListItem(
+                        headlineContent = { Text("Show Tracker") },
+                        supportingContent = { Text("Version 1.0") },
+                        leadingContent = {
+                            Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun SettingsSection(
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier) {
+        Text(
+            text = title.uppercase(),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+        )
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        ) {
+            content()
         }
     }
 }
@@ -296,12 +370,12 @@ private fun <T> SettingsWrapChips(
     }
     if (currentRow.isNotEmpty()) rows.add(currentRow)
 
-    androidx.compose.foundation.layout.Column(
+    Column(
         modifier = modifier,
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         rows.forEach { row ->
-            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { item ->
                     FilterChip(selected = isSelected(item), onClick = { onClick(item) }, label = { Text(label(item)) })
                 }
