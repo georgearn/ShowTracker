@@ -27,6 +27,7 @@ class UserPrefs @Inject constructor(private val context: Context) {
         val PREFERRED_GENRES = stringSetPreferencesKey("preferred_genre_ids") // TMDB genre ids, as strings
         val HAS_ONBOARDED = booleanPreferencesKey("has_onboarded")
         val UPCOMING_PAGES = intPreferencesKey("upcoming_pages_per_type") // TMDB pages (20 results each) fetched per media type
+        val SEEN_ALERTS = stringSetPreferencesKey("seen_alert_keys") // alert keys already shown on the Notifications screen
     }
 
     companion object {
@@ -38,6 +39,12 @@ class UserPrefs @Inject constructor(private val context: Context) {
 
     suspend fun setUpcomingPagesPerType(pages: Int) {
         context.dataStore.edit { it[Keys.UPCOMING_PAGES] = pages.coerceIn(1, MAX_UPCOMING_PAGES) }
+    }
+
+    val seenAlertKeys: Flow<Set<String>> = context.dataStore.data.map { it[Keys.SEEN_ALERTS] ?: emptySet() }
+
+    suspend fun setSeenAlertKeys(keys: Set<String>) {
+        context.dataStore.edit { it[Keys.SEEN_ALERTS] = keys }
     }
 
     val blockedCountries: Flow<Set<String>> = context.dataStore.data.map { it[Keys.BLOCKED_COUNTRIES] ?: emptySet() }

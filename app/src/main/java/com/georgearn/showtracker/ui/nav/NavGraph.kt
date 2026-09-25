@@ -1,5 +1,9 @@
 package com.georgearn.showtracker.ui.nav
 
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -17,13 +21,23 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -62,6 +76,11 @@ private data class TopLevelDestination(
     val unselectedIcon: ImageVector
 )
 
+// M3 "fade through": outgoing fades fast, incoming fades + scales up slightly after a short delay.
+private val fadeThroughIn = fadeIn(tween(durationMillis = 210, delayMillis = 90)) +
+    scaleIn(initialScale = 0.92f, animationSpec = tween(durationMillis = 210, delayMillis = 90))
+private val fadeThroughOut = fadeOut(tween(durationMillis = 90))
+
 data class DeepLinkTarget(val tmdbId: Int, val mediaType: String)
 
 private val topLevelDestinations = listOf(
@@ -81,17 +100,33 @@ fun ShowTrackerNavHost(
 
     val resolved = needsOnboarding
     if (resolved == null) {
-        Box(androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
         return
+    }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(Unit) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            gateViewModel.messages.collect { message ->
+                val result = snackbarHostState.showSnackbar(
+                    message = message.text,
+                    actionLabel = message.actionLabel,
+                    withDismissAction = message.actionLabel == null,
+                    duration = SnackbarDuration.Short
+                )
+                if (result == SnackbarResult.ActionPerformed) gateViewModel.runAction(message)
+            }
+        }
     }
 
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
-    androidx.compose.runtime.LaunchedEffect(deepLinkTarget) {
+    LaunchedEffect(deepLinkTarget) {
         if (deepLinkTarget != null) {
             navController.navigate(Routes.details(deepLinkTarget.tmdbId, deepLinkTarget.mediaType))
             onDeepLinkConsumed()
@@ -99,6 +134,7 @@ fun ShowTrackerNavHost(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             if (currentRoute != null && topLevelDestinations.any { it.route == currentRoute }) {
                 NavigationBar {
@@ -126,56 +162,82 @@ fun ShowTrackerNavHost(
             }
         }
     ) { padding ->
+        // Details draws its backdrop under the status bar, so the top inset is applied per screen.
+        val belowStatusBar = Modifier.padding(top = padding.calculateTopPadding())
         NavHost(
             navController = navController,
             startDestination = if (resolved) Routes.ONBOARDING else Routes.HOME,
-            modifier = androidx.compose.ui.Modifier.padding(padding)
+            modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
+            enterTransition = { fadeThroughIn },
+            exitTransition = { fadeThroughOut },
+            popEnterTransition = { fadeThroughIn },
+            popExitTransition = { fadeThroughOut }
         ) {
             composable(Routes.ONBOARDING) {
-                OnboardingScreen(
-                    onDone = {
-                        navController.navigate(Routes.HOME) {
-                            popUpTo(Routes.ONBOARDING) { inclusive = true }
+                Box(belowStatusBar) {
+                    OnboardingScreen(
+                        onDone = {
+                            navController.navigate(Routes.HOME) {
+                                popUpTo(Routes.ONBOARDING) { inclusive = true }
+                            }
                         }
-                    }
-                )
+                    )
+                }
             }
             composable(Routes.HOME) {
-                HomeScreen(
-                    onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) },
-                    onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
-                    onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    onOpenUpcoming = { navController.navigate(Routes.UPCOMING) },
-                    onOpenJustDropped = { navController.navigate(Routes.JUST_DROPPED) }
-                )
+                Box(belowStatusBar) {
+                    HomeScreen(
+                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) },
+                        onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onOpenUpcoming = { navController.navigate(Routes.UPCOMING) },
+                        onOpenJustDropped = { navController.navigate(Routes.JUST_DROPPED) }
+                    )
+                }
             }
             composable(Routes.UPCOMING) {
-                UpcomingScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
-                )
+                Box(belowStatusBar) {
+                    UpcomingScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
+                    )
+                }
             }
             composable(Routes.JUST_DROPPED) {
-                JustDroppedScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
-                )
+                Box(belowStatusBar) {
+                    JustDroppedScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
+                    )
+                }
             }
             composable(Routes.DISCOVER) {
-                DiscoverScreen(onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) })
+                Box(belowStatusBar) {
+                    DiscoverScreen(onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) })
+                }
             }
             composable(Routes.WATCHLIST) {
-                WatchlistScreen(onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) })
+                Box(belowStatusBar) {
+                    WatchlistScreen(onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) })
+                }
             }
             composable(Routes.FOR_YOU) {
-                ForYouScreen(onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) })
+                Box(belowStatusBar) {
+                    ForYouScreen(onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) })
+                }
             }
-            composable(Routes.SETTINGS) { SettingsScreen(onBack = { navController.popBackStack() }) }
+            composable(Routes.SETTINGS) {
+                Box(belowStatusBar) {
+                    SettingsScreen(onBack = { navController.popBackStack() })
+                }
+            }
             composable(Routes.NOTIFICATIONS) {
-                NotificationsScreen(
-                    onBack = { navController.popBackStack() },
-                    onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
-                )
+                Box(belowStatusBar) {
+                    NotificationsScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
+                    )
+                }
             }
             composable(
                 route = Routes.DETAILS,
@@ -184,7 +246,10 @@ fun ShowTrackerNavHost(
                     navArgument("mediaType") { type = androidx.navigation.NavType.StringType }
                 )
             ) {
-                DetailsScreen(onBack = { navController.popBackStack() })
+                DetailsScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
+                )
             }
         }
     }

@@ -1,15 +1,15 @@
 package com.georgearn.showtracker.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
-import androidx.room.PrimaryKey
 
 /**
  * A title the user has handpicked into their own list - whether it's already released
  * and waiting to be watched, or still upcoming and waiting for a release notification.
  */
-@Entity(tableName = "watchlist")
+@Entity(tableName = "watchlist", primaryKeys = ["tmdbId", "mediaType"])
 data class WatchlistEntity(
-    @PrimaryKey val tmdbId: Int,
+    val tmdbId: Int,
     val mediaType: String,          // "movie" | "tv"
     val title: String,
     val posterPath: String?,
@@ -25,5 +25,17 @@ data class WatchlistEntity(
     val watchedAtEpochMillis: Long? = null,
     val notifyOnRelease: Boolean = false,
     val lastKnownReleaseStatus: String = "UNKNOWN", // ReleaseStatus.name cache for the background worker diff
-    val releaseNotificationSent: Boolean = false
+    val releaseNotificationSent: Boolean = false,
+    // New-season alerts (tv only). The two "last" fields remember what was already notified,
+    // so each season triggers one "premieres on" and one "is out" notification at most.
+    @ColumnInfo(defaultValue = "0") val followSeasons: Boolean = false,
+    val nextSeasonNumber: Int? = null,
+    val nextSeasonAirDate: String? = null,
+    val lastAnnouncedSeason: Int? = null,
+    val lastReleasedSeason: Int? = null
 )
+
+/** TMDB reuses numeric ids across movies and tv, so identity is always the (type, id) pair. */
+val WatchlistEntity.key: String get() = mediaKey(mediaType, tmdbId)
+
+fun mediaKey(mediaType: String, tmdbId: Int): String = "$mediaType:$tmdbId"

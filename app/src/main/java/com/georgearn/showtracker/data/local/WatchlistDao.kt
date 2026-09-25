@@ -17,11 +17,14 @@ interface WatchlistDao {
     @Query("SELECT * FROM watchlist WHERE notifyOnRelease = 1 AND releaseNotificationSent = 0")
     suspend fun getPendingReleaseWatches(): List<WatchlistEntity>
 
-    @Query("SELECT * FROM watchlist WHERE tmdbId = :tmdbId LIMIT 1")
-    suspend fun getById(tmdbId: Int): WatchlistEntity?
+    @Query("SELECT * FROM watchlist WHERE followSeasons = 1 AND mediaType = 'tv'")
+    suspend fun getFollowedSeries(): List<WatchlistEntity>
 
-    @Query("SELECT * FROM watchlist WHERE tmdbId = :tmdbId LIMIT 1")
-    fun observeById(tmdbId: Int): Flow<WatchlistEntity?>
+    @Query("SELECT * FROM watchlist WHERE tmdbId = :tmdbId AND mediaType = :mediaType LIMIT 1")
+    suspend fun getById(tmdbId: Int, mediaType: String): WatchlistEntity?
+
+    @Query("SELECT * FROM watchlist WHERE tmdbId = :tmdbId AND mediaType = :mediaType LIMIT 1")
+    fun observeById(tmdbId: Int, mediaType: String): Flow<WatchlistEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(item: WatchlistEntity)
@@ -32,18 +35,18 @@ interface WatchlistDao {
     @Delete
     suspend fun delete(item: WatchlistEntity)
 
-    @Query("DELETE FROM watchlist WHERE tmdbId = :tmdbId")
-    suspend fun deleteById(tmdbId: Int)
+    @Query("DELETE FROM watchlist WHERE tmdbId = :tmdbId AND mediaType = :mediaType")
+    suspend fun deleteById(tmdbId: Int, mediaType: String)
 
-    @Query("UPDATE watchlist SET watched = :watched, watchedAtEpochMillis = :watchedAt WHERE tmdbId = :tmdbId")
-    suspend fun setWatched(tmdbId: Int, watched: Boolean, watchedAt: Long?)
+    @Query("UPDATE watchlist SET watched = :watched, watchedAtEpochMillis = :watchedAt WHERE tmdbId = :tmdbId AND mediaType = :mediaType")
+    suspend fun setWatched(tmdbId: Int, mediaType: String, watched: Boolean, watchedAt: Long?)
 
     @Query("SELECT * FROM watchlist WHERE watched = 1 ORDER BY watchedAtEpochMillis DESC")
     fun observeHistory(): Flow<List<WatchlistEntity>>
 
-    @Query("UPDATE watchlist SET lastKnownReleaseStatus = :status WHERE tmdbId = :tmdbId")
-    suspend fun updateStatus(tmdbId: Int, status: String)
+    @Query("UPDATE watchlist SET lastKnownReleaseStatus = :status WHERE tmdbId = :tmdbId AND mediaType = :mediaType")
+    suspend fun updateStatus(tmdbId: Int, mediaType: String, status: String)
 
-    @Query("UPDATE watchlist SET releaseNotificationSent = 1 WHERE tmdbId = :tmdbId")
-    suspend fun markNotified(tmdbId: Int)
+    @Query("UPDATE watchlist SET releaseNotificationSent = 1 WHERE tmdbId = :tmdbId AND mediaType = :mediaType")
+    suspend fun markNotified(tmdbId: Int, mediaType: String)
 }

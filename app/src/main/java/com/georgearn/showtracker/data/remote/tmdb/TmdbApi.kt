@@ -1,6 +1,7 @@
 package com.georgearn.showtracker.data.remote.tmdb
 
 import retrofit2.http.GET
+import retrofit2.http.Header
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -59,13 +60,16 @@ interface TmdbApi {
     @GET("movie/{id}")
     suspend fun movieDetail(
         @Path("id") id: Int,
-        @Query("append_to_response") append: String = "watch/providers,credits"
+        @Query("append_to_response") append: String = "watch/providers,credits,videos,recommendations",
+        // "no-cache" forces a round trip; responses are otherwise cached for 3 days (see NetworkModule).
+        @Header("Cache-Control") cacheControl: String? = null
     ): TmdbDetailResponse
 
     @GET("tv/{id}")
     suspend fun tvDetail(
         @Path("id") id: Int,
-        @Query("append_to_response") append: String = "watch/providers,external_ids,credits"
+        @Query("append_to_response") append: String = "watch/providers,external_ids,credits,videos,recommendations",
+        @Header("Cache-Control") cacheControl: String? = null
     ): TmdbDetailResponse
 
     @GET("genre/movie/list")

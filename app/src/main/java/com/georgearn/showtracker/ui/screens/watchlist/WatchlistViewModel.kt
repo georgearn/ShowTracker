@@ -66,7 +66,8 @@ class WatchlistViewModel @Inject constructor(
             ),
             waitingOnRelease = WatchlistSection(
                 "Waiting on release",
-                group(list.filter { DateUtils.releaseStatus(it.releaseDate) == ReleaseStatus.UPCOMING }, org)
+                // TBA titles (no date yet) wait here too instead of disappearing from the list.
+                group(list.filter { !it.watched && DateUtils.releaseStatus(it.releaseDate) != ReleaseStatus.RELEASED }, org)
             ),
             history = WatchlistSection(
                 "Watched",
@@ -100,11 +101,11 @@ class WatchlistViewModel @Inject constructor(
     }
 
     fun toggleWatched(item: WatchlistEntity) {
-        viewModelScope.launch { repository.setWatched(item.tmdbId, !item.watched) }
+        viewModelScope.launch { repository.setWatched(item, !item.watched) }
     }
 
     fun remove(item: WatchlistEntity) {
-        viewModelScope.launch { repository.removeFromWatchlist(item.tmdbId) }
+        viewModelScope.launch { repository.removeWithUndo(item) }
     }
 
     fun toggleNotify(item: WatchlistEntity) {

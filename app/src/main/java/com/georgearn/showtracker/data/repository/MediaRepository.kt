@@ -5,22 +5,28 @@ import com.georgearn.showtracker.data.local.Countries
 import com.georgearn.showtracker.data.local.UserPrefs
 import com.georgearn.showtracker.data.local.WatchlistDao
 import com.georgearn.showtracker.data.local.WatchlistEntity
+import com.georgearn.showtracker.data.local.key
 import com.georgearn.showtracker.data.model.CastMember
 import com.georgearn.showtracker.data.model.MediaDetail
 import com.georgearn.showtracker.data.model.MediaSummary
 import com.georgearn.showtracker.data.model.MediaType
 import com.georgearn.showtracker.data.model.ProviderKind
+import com.georgearn.showtracker.data.model.ReleaseStatus
 import com.georgearn.showtracker.data.model.WatchProvider
 import com.georgearn.showtracker.data.remote.omdb.OmdbApi
 import com.georgearn.showtracker.data.remote.tmdb.TmdbApi
 import com.georgearn.showtracker.data.remote.tmdb.TmdbDetailResponse
 import com.georgearn.showtracker.data.remote.tmdb.TmdbMultiResult
+import com.georgearn.showtracker.data.remote.tmdb.TmdbVideo
 import com.georgearn.showtracker.di.ApiConstants
+import com.georgearn.showtracker.ui.screens.common.UserMessage
+import com.georgearn.showtracker.ui.screens.common.UserMessageBus
 import com.georgearn.showtracker.util.DateUtils
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
@@ -31,7 +37,8 @@ class MediaRepository @Inject constructor(
     private val tmdbApi: TmdbApi,
     private val omdbApi: OmdbApi,
     private val watchlistDao: WatchlistDao,
-    private val userPrefs: UserPrefs
+    private val userPrefs: UserPrefs,
+    private val messages: UserMessageBus
 ) {
     private var genreNamesCache: Map<Int, String>? = null
     private var cachedRecentlyReleased: Pair<Long, List<MediaSummary>>? = null
@@ -77,9 +84,14 @@ class MediaRepository @Inject constructor(
      * with IMDb/RT scores merged in (OMDb lookups capped at [ratingsCap] to bound request fan-out).
      * Cached in-memory for 3 days.
      */
-    suspend fun recentlyReleased(windowDays: Long = 30, ratingsCap: Int = 24, pagesPerType: Int = 5): List<MediaSummary> {
+    suspend fun recentlyReleased(
+        windowDays: Long = 30,
+        ratingsCap: Int = 24,
+        pagesPerType: Int = 5,
+        forceRefresh: Boolean = false
+    ): List<MediaSummary> {
         val now = System.currentTimeMillis()
-        cachedRecentlyReleased?.let { (timestamp, list) ->
+        cachedRecentlyReleased?.takeUnless { forceRefresh }?.let { (timestamp, list) ->
             if (now - timestamp < CACHE_DURATION_MS && list.isNotEmpty()) {
                 return list
             }
@@ -116,9 +128,9 @@ class MediaRepository @Inject constructor(
      * since near-term releases alone can fill page 1, otherwise nothing further out ever shows.
      * Cached in-memory for 3 days.
      */
-    suspend fun upcoming(pagesPerType: Int? = null): List<MediaSummary> {
+    suspend fun upcoming(pagesPerType: Int? = null, forceRefresh: Boolean = false): List<MediaSummary> {
         val now = System.currentTimeMillis()
-        cachedUpcoming?.let { (timestamp, list) ->
+        cachedUpcoming?.takeUnless { forceRefresh }?.let { (timestamp, list) ->
             if (now - timestamp < CACHE_DURATION_MS && list.isNotEmpty()) {
                 return list
             }
@@ -186,8 +198,14 @@ class MediaRepository @Inject constructor(
 
     // ---------- Detail (TMDB + OMDb merge) ----------
 
-    suspend fun getDetail(tmdbId: Int, mediaType: MediaType): MediaDetail {
-        val detail = if (mediaType == MediaType.MOVIE) tmdbApi.movieDetail(tmdbId) else tmdbApi.tvDetail(tmdbId)
+    /** [bypassCache] is for the background worker, which must see date changes the same day. */
+    suspend fun getDetail(tmdbId: Int, mediaType: MediaType, bypassCache: Boolean = false): MediaDetail {
+        val cacheControl = if (bypassCache) "no-cache" else null
+        val detail = if (mediaType == MediaType.MOVIE) {
+            tmdbApi.movieDetail(tmdbId, cacheControl = cacheControl)
+        } else {
+            tmdbApi.tvDetail(tmdbId, cacheControl = cacheControl)
+        }
         val region = userPrefs.watchRegion.first()
         val providers = detail.watchProviders?.results?.get(region)
         val imdbId = detail.resolvedImdbId
@@ -230,7 +248,22 @@ class MediaRepository @Inject constructor(
             cast = detail.credits?.cast.orEmpty()
                 .sortedBy { it.order }
                 .take(15)
-                .map { CastMember(it.name, it.character, it.profilePath) }
+                .map { CastMember(it.name, it.character, it.profilePath) },
+            trailerYoutubeKey = detail.videos?.results.orEmpty()
+                .filter { it.site == "YouTube" && (it.type == "Trailer" || it.type == "Teaser") }
+                .sortedWith(compareByDescending<TmdbVideo> { it.type == "Trailer" }.thenByDescending { it.official })
+                .firstOrNull()?.key,
+            seasonCount = detail.numberOfSeasons,
+            seriesStatus = detail.status,
+            nextSeasonNumber = detail.nextEpisodeToAir?.takeIf { it.episodeNumber == 1 }?.seasonNumber,
+            nextSeasonAirDate = detail.nextEpisodeToAir?.takeIf { it.episodeNumber == 1 }?.airDate?.ifBlank { null },
+            latestAiredSeason = detail.lastEpisodeToAir?.seasonNumber,
+            episodeCount = detail.numberOfEpisodes,
+            recommendations = detail.recommendations?.results.orEmpty()
+                .filter { it.posterPath != null }
+                .map { it.toSummary(if (it.mediaType == "tv" || it.mediaType == "movie") null else mediaType) }
+                .distinctBy { it.mediaType to it.tmdbId }
+                .take(12)
         )
     }
 
@@ -248,7 +281,36 @@ class MediaRepository @Inject constructor(
 
     fun observeWatchlist(): Flow<List<WatchlistEntity>> = watchlistDao.observeAll()
 
-    fun observeIsSaved(tmdbId: Int): Flow<Boolean> = watchlistDao.observeById(tmdbId).map { it != null }
+    /**
+     * Titles with the bell on, split into "out now" (released in the last 30 days) and "coming up".
+     * Each alert carries a status-scoped key so a title re-badges once when it flips to released.
+     */
+    fun observeReleaseAlerts(): Flow<ReleaseAlerts> = watchlistDao.observeAll().map { list ->
+        val watched = list.filter { it.notifyOnRelease }
+        ReleaseAlerts(
+            outNow = watched
+                .filter { (DateUtils.daysSince(it.releaseDate) ?: Long.MAX_VALUE) <= 30 && DateUtils.releaseStatus(it.releaseDate) == ReleaseStatus.RELEASED }
+                .sortedByDescending { it.releaseDate },
+            comingUp = watched
+                .filter { DateUtils.releaseStatus(it.releaseDate) != ReleaseStatus.RELEASED }
+                .sortedWith(compareBy(nullsLast<String>()) { it.releaseDate?.ifBlank { null } }),
+            newSeasons = list
+                .filter { it.followSeasons && it.nextSeasonNumber != null && it.nextSeasonAirDate != null }
+                .filter { (DateUtils.daysSince(it.nextSeasonAirDate) ?: 0L) <= 30 }
+                .sortedBy { it.nextSeasonAirDate }
+        )
+    }
+
+    val hasUnseenAlerts: Flow<Boolean> = combine(observeReleaseAlerts(), userPrefs.seenAlertKeys) { alerts, seen ->
+        (alerts.badgeKeys - seen).isNotEmpty()
+    }
+
+    suspend fun markAlertsSeen() {
+        userPrefs.setSeenAlertKeys(observeReleaseAlerts().first().badgeKeys)
+    }
+
+    fun observeEntry(tmdbId: Int, mediaType: MediaType): Flow<WatchlistEntity?> =
+        watchlistDao.observeById(tmdbId, mediaType.apiValue)
 
     suspend fun addToWatchlist(detail: MediaDetail, notifyOnRelease: Boolean) {
         watchlistDao.upsert(
@@ -265,16 +327,59 @@ class MediaRepository @Inject constructor(
                 genres = detail.genres.joinToString(","),
                 runtimeMinutes = detail.runtimeMinutes,
                 addedAtEpochMillis = System.currentTimeMillis(),
-                notifyOnRelease = notifyOnRelease && detail.releaseStatus == com.georgearn.showtracker.data.model.ReleaseStatus.UPCOMING,
+                notifyOnRelease = notifyOnRelease && detail.releaseStatus == ReleaseStatus.UPCOMING,
                 lastKnownReleaseStatus = detail.releaseStatus.name
             )
         )
     }
 
-    suspend fun removeFromWatchlist(tmdbId: Int) = watchlistDao.deleteById(tmdbId)
+    /**
+     * Turns new-season alerts on or off, saving the series first if needed. Enabling records what
+     * is already known (a dated season, the latest aired one) so only future changes notify.
+     */
+    suspend fun setFollowSeasons(detail: MediaDetail, enabled: Boolean) {
+        if (detail.mediaType != MediaType.TV) return
+        if (watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) == null) {
+            if (!enabled) return
+            addToWatchlist(detail, notifyOnRelease = false)
+        }
+        val existing = watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) ?: return
+        watchlistDao.update(
+            if (enabled) {
+                existing.copy(
+                    followSeasons = true,
+                    nextSeasonNumber = detail.nextSeasonNumber ?: existing.nextSeasonNumber,
+                    nextSeasonAirDate = detail.nextSeasonAirDate ?: existing.nextSeasonAirDate,
+                    lastAnnouncedSeason = detail.nextSeasonNumber ?: existing.lastAnnouncedSeason,
+                    lastReleasedSeason = detail.latestAiredSeason ?: existing.lastReleasedSeason ?: 0
+                )
+            } else {
+                existing.copy(followSeasons = false)
+            }
+        )
+    }
 
-    suspend fun setWatched(tmdbId: Int, watched: Boolean) =
-        watchlistDao.setWatched(tmdbId, watched, if (watched) System.currentTimeMillis() else null)
+    /** Keeps the stored next-season date current when a followed series is opened. Never notifies. */
+    suspend fun refreshSeasonInfo(detail: MediaDetail) {
+        val existing = watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) ?: return
+        if (!existing.followSeasons || detail.nextSeasonNumber == null) return
+        watchlistDao.update(
+            existing.copy(nextSeasonNumber = detail.nextSeasonNumber, nextSeasonAirDate = detail.nextSeasonAirDate)
+        )
+    }
+
+    suspend fun setWatched(item: WatchlistEntity, watched: Boolean) =
+        watchlistDao.setWatched(item.tmdbId, item.mediaType, watched, if (watched) System.currentTimeMillis() else null)
+
+    /** Details-screen bell: saves the title with the alert on if needed, otherwise flips the alert only. */
+    suspend fun setNotifyOnRelease(detail: MediaDetail, enabled: Boolean) {
+        val existing = watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue)
+        if (existing == null) {
+            if (enabled) addToWatchlist(detail, notifyOnRelease = true)
+        } else {
+            watchlistDao.update(existing.copy(notifyOnRelease = enabled))
+        }
+    }
 
     suspend fun setNotifyOnRelease(item: WatchlistEntity, enabled: Boolean) =
         watchlistDao.update(item.copy(notifyOnRelease = enabled))
@@ -286,7 +391,7 @@ class MediaRepository @Inject constructor(
         val all = watchlistDao.observeAll().first()
         val pool = all.filter { item ->
             !item.watched &&
-                DateUtils.releaseStatus(item.releaseDate) == com.georgearn.showtracker.data.model.ReleaseStatus.RELEASED &&
+                DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.RELEASED &&
                 (genre == null || item.genres.split(",").map { it.trim() }.contains(genre))
         }
         return pool.randomOrNull()
@@ -304,7 +409,7 @@ class MediaRepository @Inject constructor(
         genreOverride: Set<String>? = null
     ): List<WatchlistEntity> {
         val all = watchlistDao.observeAll().first().filter {
-            !it.watched && DateUtils.releaseStatus(it.releaseDate) == com.georgearn.showtracker.data.model.ReleaseStatus.RELEASED
+            !it.watched && DateUtils.releaseStatus(it.releaseDate) == ReleaseStatus.RELEASED
         }
         val genres = if (!genreOverride.isNullOrEmpty()) genreOverride else mood.genres
         var filtered = all
@@ -325,21 +430,62 @@ class MediaRepository @Inject constructor(
     // ---------- Quick add from a list card (no full detail fetch) ----------
 
     suspend fun quickToggleWatchlist(summary: MediaSummary) {
-        if (watchlistDao.observeById(summary.tmdbId).first() != null) {
-            watchlistDao.deleteById(summary.tmdbId)
+        val existing = watchlistDao.getById(summary.tmdbId, summary.mediaType.apiValue)
+        if (existing != null) {
+            removeWithUndo(existing)
         } else {
-            watchlistDao.upsert(summary.toWatchlistEntity())
+            val added = summary.toWatchlistEntity()
+            watchlistDao.upsert(added)
+            messages.post(
+                UserMessage(
+                    text = "Added \"${added.title}\" to your list",
+                    actionLabel = "Undo",
+                    onAction = { watchlistDao.deleteById(added.tmdbId, added.mediaType) }
+                )
+            )
         }
     }
 
+    /** Removes an entry and posts a snackbar whose "Undo" restores it exactly as it was. */
+    suspend fun removeWithUndo(item: WatchlistEntity) {
+        watchlistDao.deleteById(item.tmdbId, item.mediaType)
+        messages.post(
+            UserMessage(
+                text = "Removed \"${item.title}\"",
+                actionLabel = "Undo",
+                onAction = { watchlistDao.upsert(item) }
+            )
+        )
+    }
+
     suspend fun quickToggleNotify(summary: MediaSummary) {
-        val existing = watchlistDao.observeById(summary.tmdbId).first()
+        val existing = watchlistDao.getById(summary.tmdbId, summary.mediaType.apiValue)
         if (existing != null) {
             watchlistDao.update(existing.copy(notifyOnRelease = !existing.notifyOnRelease))
         } else {
             watchlistDao.upsert(summary.toWatchlistEntity(notifyOnRelease = true))
         }
     }
+}
+
+data class ReleaseAlerts(
+    val outNow: List<WatchlistEntity>,
+    val comingUp: List<WatchlistEntity>,
+    /** Followed series with a dated season premiering soon or in the last 30 days. */
+    val newSeasons: List<WatchlistEntity> = emptyList()
+) {
+    /**
+     * Only fresh releases and titles due within a week earn a badge - not every bell ever set.
+     * Season keys include the season number and phase, so a newly dated season badges once and
+     * its premiere badges again.
+     */
+    val badgeKeys: Set<String>
+        get() = outNow.map { "out:${it.key}" }.toSet() +
+            comingUp.filter { (DateUtils.daysUntil(it.releaseDate) ?: Long.MAX_VALUE) <= 7 }.map { "soon:${it.key}" } +
+            newSeasons.map { item ->
+                val phase = if (DateUtils.releaseStatus(item.nextSeasonAirDate) == ReleaseStatus.RELEASED) "aired" else "dated"
+                "season:${item.key}:${item.nextSeasonNumber}:$phase"
+            }
 }
 
 enum class SuggestionMood(val genres: List<String>?) {
@@ -375,7 +521,7 @@ private fun MediaSummary.toWatchlistEntity(notifyOnRelease: Boolean = false) = W
     rottenTomatoesScore = null,
     genres = "",
     addedAtEpochMillis = System.currentTimeMillis(),
-    notifyOnRelease = notifyOnRelease && DateUtils.releaseStatus(releaseDate) == com.georgearn.showtracker.data.model.ReleaseStatus.UPCOMING,
+    notifyOnRelease = notifyOnRelease && DateUtils.releaseStatus(releaseDate) == ReleaseStatus.UPCOMING,
     lastKnownReleaseStatus = DateUtils.releaseStatus(releaseDate).name
 )
 
