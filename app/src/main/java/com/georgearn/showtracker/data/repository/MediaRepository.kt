@@ -34,6 +34,9 @@ class MediaRepository @Inject constructor(
     private val userPrefs: UserPrefs
 ) {
     private var genreNamesCache: Map<Int, String>? = null
+    private var cachedRecentlyReleased: Pair<Long, List<MediaSummary>>? = null
+    private var cachedUpcoming: Pair<Long, List<MediaSummary>>? = null
+    private val CACHE_DURATION_MS = 3 * 24 * 60 * 60 * 1000L // 3 days
 
     /** id -> name for both movie and tv genres, fetched once and cached for the process lifetime. */
     suspend fun genreNames(): Map<Int, String> {
@@ -72,8 +75,15 @@ class MediaRepository @Inject constructor(
     /**
      * Home feed: titles released in the last [windowDays] days across movies + tv, newest first,
      * with IMDb/RT scores merged in (OMDb lookups capped at [ratingsCap] to bound request fan-out).
+     * Cached in-memory for 3 days.
      */
     suspend fun recentlyReleased(windowDays: Long = 30, ratingsCap: Int = 24, pagesPerType: Int = 5): List<MediaSummary> {
+        val now = System.currentTimeMillis()
+        cachedRecentlyReleased?.let { (timestamp, list) ->
+            if (now - timestamp < CACHE_DURATION_MS && list.isNotEmpty()) {
+                return list
+            }
+        }
         val today = DateUtils.todayIso()
         val since = DateUtils.isoDaysAgo(windowDays)
         val blocked = userPrefs.blockedCountries.first()
@@ -95,15 +105,24 @@ class MediaRepository @Inject constructor(
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
         val rated = enrichWithOmdbRatings(combined.take(ratingsCap))
-        return rated + combined.drop(ratingsCap)
+        val result = rated + combined.drop(ratingsCap)
+        cachedRecentlyReleased = now to result
+        return result
     }
 
     /**
      * Upcoming feed: titles not out yet, soonest first - the "set a notification" pool and the
      * source for the "Releasing Soon" time-window sections. Fetches a few pages per media type
      * since near-term releases alone can fill page 1, otherwise nothing further out ever shows.
+     * Cached in-memory for 3 days.
      */
     suspend fun upcoming(pagesPerType: Int? = null): List<MediaSummary> {
+        val now = System.currentTimeMillis()
+        cachedUpcoming?.let { (timestamp, list) ->
+            if (now - timestamp < CACHE_DURATION_MS && list.isNotEmpty()) {
+                return list
+            }
+        }
         val pages = pagesPerType ?: userPrefs.upcomingPagesPerType.first()
         val today = DateUtils.todayIso()
         val blocked = userPrefs.blockedCountries.first()
@@ -114,12 +133,14 @@ class MediaRepository @Inject constructor(
         val tv = coroutineScope {
             (1..pages).map { page -> async { tmdbApi.discoverTvUpcoming(gte = today, page = page).results } }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.TV) }
-        return (movies + tv)
+        val result = (movies + tv)
             .distinctBy { it.mediaType to it.tmdbId }
             .sortedBy { it.releaseDate }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
+        cachedUpcoming = now to result
+        return result
     }
 
     /** Onboarding genre picks act as a hard filter when set - consistent across every passive feed. */

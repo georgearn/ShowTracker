@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class RecStage { QUIZ, SWIPE }
+enum class RecStage { INTRO, QUIZ, SWIPE }
+
 enum class QuizType(val label: String, val mediaType: MediaType?) {
     MOVIE("Movie", MediaType.MOVIE),
     SERIES("Series", MediaType.TV),
@@ -21,7 +22,8 @@ enum class QuizType(val label: String, val mediaType: MediaType?) {
 }
 
 data class ForYouState(
-    val stage: RecStage = RecStage.QUIZ,
+    val stage: RecStage = RecStage.INTRO,
+    val quizStep: Int = 0,
     val mood: SuggestionMood = SuggestionMood.ANYTHING,
     val quizType: QuizType = QuizType.EITHER,
     val length: LengthPref = LengthPref.ANY,
@@ -32,6 +34,7 @@ data class ForYouState(
 ) {
     val current: WatchlistEntity? get() = queue.getOrNull(index)
     val exhausted: Boolean get() = queue.isNotEmpty() && index >= queue.size
+    val totalSteps: Int get() = if (genreOptions.isNotEmpty()) 4 else 3
 }
 
 @HiltViewModel
@@ -46,6 +49,28 @@ class ForYouViewModel @Inject constructor(
         viewModelScope.launch {
             val names = repository.genreNames().values.distinct().sorted()
             _state.value = _state.value.copy(genreOptions = names)
+        }
+    }
+
+    fun startQuiz() {
+        _state.value = _state.value.copy(stage = RecStage.QUIZ, quizStep = 0)
+    }
+
+    fun nextQuizStep() {
+        val s = _state.value
+        if (s.quizStep < s.totalSteps - 1) {
+            _state.value = s.copy(quizStep = s.quizStep + 1)
+        } else {
+            startRecs()
+        }
+    }
+
+    fun previousQuizStep() {
+        val s = _state.value
+        if (s.quizStep > 0) {
+            _state.value = s.copy(quizStep = s.quizStep - 1)
+        } else {
+            _state.value = s.copy(stage = RecStage.INTRO)
         }
     }
 
@@ -101,11 +126,10 @@ class ForYouViewModel @Inject constructor(
         }
     }
 
-    fun retakeQuiz() {
-        _state.value = _state.value.copy(stage = RecStage.QUIZ)
+    fun resetToIntro() {
+        _state.value = _state.value.copy(stage = RecStage.INTRO, quizStep = 0)
     }
 
-    /** liked is currently just an interaction cue - both like/skip advance to the next card. */
     fun decide(liked: Boolean) {
         _state.value = _state.value.copy(index = _state.value.index + 1)
     }

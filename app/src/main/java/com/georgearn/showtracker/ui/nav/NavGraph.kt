@@ -8,6 +8,10 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.outlined.Explore
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -17,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -50,15 +55,20 @@ private object Routes {
     fun details(id: Int, type: String) = "details/$id/$type"
 }
 
-private data class TopLevelDestination(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+private data class TopLevelDestination(
+    val route: String,
+    val label: String,
+    val selectedIcon: ImageVector,
+    val unselectedIcon: ImageVector
+)
 
 data class DeepLinkTarget(val tmdbId: Int, val mediaType: String)
 
 private val topLevelDestinations = listOf(
-    TopLevelDestination(Routes.HOME, "Home", Icons.Default.Home),
-    TopLevelDestination(Routes.DISCOVER, "Discover", Icons.Default.Explore),
-    TopLevelDestination(Routes.WATCHLIST, "List", Icons.Default.Bookmarks),
-    TopLevelDestination(Routes.FOR_YOU, "For You", Icons.Default.AutoAwesome)
+    TopLevelDestination(Routes.HOME, "Home", Icons.Filled.Home, Icons.Outlined.Home),
+    TopLevelDestination(Routes.DISCOVER, "Discover", Icons.Filled.Explore, Icons.Outlined.Explore),
+    TopLevelDestination(Routes.WATCHLIST, "List", Icons.Filled.Bookmarks, Icons.Outlined.Bookmarks),
+    TopLevelDestination(Routes.FOR_YOU, "For You", Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome)
 )
 
 @Composable
@@ -93,8 +103,9 @@ fun ShowTrackerNavHost(
             if (currentRoute != null && topLevelDestinations.any { it.route == currentRoute }) {
                 NavigationBar {
                     topLevelDestinations.forEach { dest ->
+                        val selected = currentRoute == dest.route
                         NavigationBarItem(
-                            selected = currentRoute == dest.route,
+                            selected = selected,
                             onClick = {
                                 navController.navigate(dest.route) {
                                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -102,7 +113,12 @@ fun ShowTrackerNavHost(
                                     restoreState = true
                                 }
                             },
-                            icon = { Icon(dest.icon, contentDescription = dest.label) },
+                            icon = {
+                                Icon(
+                                    if (selected) dest.selectedIcon else dest.unselectedIcon,
+                                    contentDescription = dest.label
+                                )
+                            },
                             label = { Text(dest.label) }
                         )
                     }

@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -347,6 +349,7 @@ private fun SettingsSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun <T> SettingsWrapChips(
     items: List<T>,
@@ -355,31 +358,13 @@ private fun <T> SettingsWrapChips(
     onClick: (T) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val rows = mutableListOf<MutableList<T>>()
-    var currentLen = 0
-    var currentRow = mutableListOf<T>()
-    items.forEach { item ->
-        val len = label(item).length
-        if (currentLen + len > 28 && currentRow.isNotEmpty()) {
-            rows.add(currentRow)
-            currentRow = mutableListOf()
-            currentLen = 0
-        }
-        currentRow.add(item)
-        currentLen += len
-    }
-    if (currentRow.isNotEmpty()) rows.add(currentRow)
-
-    Column(
+    FlowRow(
         modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { item ->
-                    FilterChip(selected = isSelected(item), onClick = { onClick(item) }, label = { Text(label(item)) })
-                }
-            }
+        items.forEach { item ->
+            FilterChip(selected = isSelected(item), onClick = { onClick(item) }, label = { Text(label(item)) })
         }
     }
 }

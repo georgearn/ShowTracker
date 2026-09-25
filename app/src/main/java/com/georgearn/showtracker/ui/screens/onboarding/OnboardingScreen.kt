@@ -9,8 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -136,6 +136,7 @@ fun OnboardingScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun <T> FlowChips(
     items: List<T>,
@@ -143,29 +144,12 @@ private fun <T> FlowChips(
     label: (T) -> String,
     onClick: (T) -> Unit
 ) {
-    // Simple wrap: chunk into rows since FlowRow isn't in this project's Compose foundation version yet.
-    val rows = mutableListOf<MutableList<T>>()
-    var currentLen = 0
-    var currentRow = mutableListOf<T>()
-    items.forEach { item ->
-        val len = label(item).length
-        if (currentLen + len > 28 && currentRow.isNotEmpty()) {
-            rows.add(currentRow)
-            currentRow = mutableListOf()
-            currentLen = 0
-        }
-        currentRow.add(item)
-        currentLen += len
-    }
-    if (currentRow.isNotEmpty()) rows.add(currentRow)
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                row.forEach { item ->
-                    FilterChip(selected = isSelected(item), onClick = { onClick(item) }, label = { Text(label(item)) })
-                }
-            }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items.forEach { item ->
+            FilterChip(selected = isSelected(item), onClick = { onClick(item) }, label = { Text(label(item)) })
         }
     }
 }

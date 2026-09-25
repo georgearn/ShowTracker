@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,7 +70,7 @@ fun HomeScreen(
     val savedIds by viewModel.savedIds.collectAsStateWithLifecycle()
     val notifyIds by viewModel.notifyIds.collectAsStateWithLifecycle()
     val hasNotifications by viewModel.hasNotifications.collectAsStateWithLifecycle()
-    var tab by remember { mutableStateOf(0) }
+    var tab by rememberSaveable { mutableStateOf(0) }
 
     Column(Modifier.fillMaxSize()) {
         Row(
@@ -103,8 +104,8 @@ fun HomeScreen(
         }
 
         TabRow(selectedTabIndex = tab, modifier = Modifier.padding(horizontal = 20.dp)) {
-            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Upcoming") })
-            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("New Releases") })
+            Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("New Releases") })
+            Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Upcoming") })
         }
 
         when (val s = state) {
@@ -118,20 +119,20 @@ fun HomeScreen(
                 }
             }
             is UiState.Success -> if (tab == 0) {
-                UpcomingTimeline(
-                    items = s.data.upcoming,
-                    notifyIds = notifyIds,
-                    onOpenDetail = onOpenDetail,
-                    onToggleNotify = viewModel::toggleNotify,
-                    onSeeAll = onOpenUpcoming
-                )
-            } else {
                 NewReleasesList(
                     items = s.data.justDropped,
                     savedIds = savedIds,
                     onOpenDetail = onOpenDetail,
                     onToggleWatchlist = viewModel::toggleWatchlist,
                     onSeeAll = onOpenJustDropped
+                )
+            } else {
+                UpcomingTimeline(
+                    items = s.data.upcoming,
+                    notifyIds = notifyIds,
+                    onOpenDetail = onOpenDetail,
+                    onToggleNotify = viewModel::toggleNotify,
+                    onSeeAll = onOpenUpcoming
                 )
             }
         }

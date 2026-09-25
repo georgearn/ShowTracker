@@ -5,7 +5,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,19 +16,23 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -35,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -55,109 +63,245 @@ fun ForYouScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Column(Modifier.padding(top = 20.dp, bottom = 6.dp)) {
+        Column(Modifier.padding(top = 20.dp, bottom = 12.dp)) {
             Text("What to Watch", style = MaterialTheme.typography.headlineSmall)
             Text("Picked from your watchlist", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
 
         when (state.stage) {
-            RecStage.QUIZ -> QuizStage(state, viewModel)
+            RecStage.INTRO -> IntroStage(viewModel)
+            RecStage.QUIZ -> QuizStepStage(state, viewModel)
             RecStage.SWIPE -> SwipeStage(state, viewModel, onOpenDetail)
         }
     }
 }
 
 @Composable
-private fun QuizStage(state: ForYouState, viewModel: ForYouViewModel) {
+private fun IntroStage(viewModel: ForYouViewModel) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(top = 16.dp, bottom = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        QuizQuestionCard(title = "Mood") {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                MoodOption("Anything", SuggestionMood.ANYTHING, state.mood, viewModel::setMood)
-                MoodOption("Light", SuggestionMood.LIGHT, state.mood, viewModel::setMood)
-                MoodOption("Intense", SuggestionMood.INTENSE, state.mood, viewModel::setMood)
-            }
-        }
-        QuizQuestionCard(title = "Movie or series?") {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                QuizType.entries.forEach { t ->
-                    FilterChip(selected = state.quizType == t, onClick = { viewModel.setQuizType(t) }, label = { Text(t.label) })
-                }
-            }
-        }
-        QuizQuestionCard(title = "How long do you have?") {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                LengthPref.entries.forEach { l ->
-                    FilterChip(
-                        selected = state.length == l,
-                        onClick = { viewModel.setLength(l) },
-                        label = { Text(l.label) },
-                        modifier = Modifier.height(32.dp)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(32.dp)
                     )
                 }
-            }
-        }
-        if (state.genreOptions.isNotEmpty()) {
-            QuizQuestionCard(title = "Any specific genres?") {
-                WrapChips(state.genreOptions) { genre ->
-                    FilterChip(
-                        selected = genre in state.selectedGenres,
-                        onClick = { viewModel.toggleGenre(genre) },
-                        label = { Text(genre) }
-                    )
+
+                Text(
+                    "Need help deciding?",
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center
+                )
+
+                Text(
+                    "Take a quick 1-minute quiz to find the perfect movie or show from your saved watchlist, or let us drop a random pick for you.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Button(
+                    onClick = viewModel::startQuiz,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("Take Quick Quiz")
+                }
+
+                OutlinedButton(
+                    onClick = viewModel::startFullyRandom,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                ) {
+                    Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    Text("Drop Random Pick")
                 }
             }
         }
-        Button(onClick = viewModel::startRecs, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
-            Text("Get My Picks")
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuizStepStage(state: ForYouState, viewModel: ForYouViewModel) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(bottom = 24.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = viewModel::previousQuizStep) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Previous question")
+            }
+            Text(
+                "Question ${state.quizStep + 1} of ${state.totalSteps}",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
-        OutlinedButton(onClick = viewModel::startFullyRandom, modifier = Modifier.fillMaxWidth()) {
-            Text("Surprise Me (Full Random)")
+
+        LinearProgressIndicator(
+            progress = { (state.quizStep + 1).toFloat() / state.totalSteps.toFloat() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp)
+                .clip(RoundedCornerShape(8.dp))
+        )
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                when (state.quizStep) {
+                    0 -> {
+                        Text("How are you feeling today?", style = MaterialTheme.typography.titleMedium)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            QuizChoiceOption("Anything (Open to whatever)", state.mood == SuggestionMood.ANYTHING) {
+                                viewModel.setMood(SuggestionMood.ANYTHING)
+                            }
+                            QuizChoiceOption("Light & Fun (Comedy, Family, Fantasy)", state.mood == SuggestionMood.LIGHT) {
+                                viewModel.setMood(SuggestionMood.LIGHT)
+                            }
+                            QuizChoiceOption("Intense & Thrilling (Action, Horror, Crime)", state.mood == SuggestionMood.INTENSE) {
+                                viewModel.setMood(SuggestionMood.INTENSE)
+                            }
+                        }
+                    }
+                    1 -> {
+                        Text("What type of content do you want?", style = MaterialTheme.typography.titleMedium)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            QuizType.entries.forEach { t ->
+                                QuizChoiceOption(t.label, state.quizType == t) {
+                                    viewModel.setQuizType(t)
+                                }
+                            }
+                        }
+                    }
+                    2 -> {
+                        Text("How much time do you have?", style = MaterialTheme.typography.titleMedium)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            LengthPref.entries.forEach { l ->
+                                QuizChoiceOption(l.label, state.length == l) {
+                                    viewModel.setLength(l)
+                                }
+                            }
+                        }
+                    }
+                    3 -> {
+                        Text("Any specific genres in mind?", style = MaterialTheme.typography.titleMedium)
+                        Text("Select optional genres or leave unselected for all.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            state.genreOptions.forEach { genre ->
+                                FilterChip(
+                                    selected = genre in state.selectedGenres,
+                                    onClick = { viewModel.toggleGenre(genre) },
+                                    label = { Text(genre) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = viewModel::previousQuizStep,
+                modifier = Modifier.weight(1f).height(48.dp)
+            ) {
+                Text("Back")
+            }
+            Button(
+                onClick = viewModel::nextQuizStep,
+                modifier = Modifier.weight(1f).height(48.dp)
+            ) {
+                Text(if (state.quizStep == state.totalSteps - 1) "Get Picks" else "Next")
+            }
         }
     }
 }
 
 @Composable
-private fun QuizQuestionCard(title: String, content: @Composable () -> Unit) {
+private fun QuizChoiceOption(
+    title: String,
+    selected: Boolean,
+    onSelect: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onSelect),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 6.dp))
-            content()
-        }
-    }
-}
-
-@Composable
-private fun MoodOption(label: String, mood: SuggestionMood, selected: SuggestionMood, onSelect: (SuggestionMood) -> Unit) {
-    FilterChip(selected = selected == mood, onClick = { onSelect(mood) }, label = { Text(label) })
-}
-
-/** Wraps chip-like items onto multiple rows without needing a FlowRow dependency. */
-@Composable
-private fun WrapChips(items: List<String>, chip: @Composable (String) -> Unit) {
-    val rows = mutableListOf<MutableList<String>>()
-    var currentLen = 0
-    var currentRow = mutableListOf<String>()
-    items.forEach { label ->
-        if (currentLen + label.length > 28 && currentRow.isNotEmpty()) {
-            rows.add(currentRow)
-            currentRow = mutableListOf()
-            currentLen = 0
-        }
-        currentRow.add(label)
-        currentLen += label.length
-    }
-    if (currentRow.isNotEmpty()) rows.add(currentRow)
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                row.forEach { chip(it) }
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            if (selected) {
+                Icon(
+                    Icons.Default.Check,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                )
             }
         }
     }
@@ -171,7 +315,7 @@ private fun SwipeStage(
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            OutlinedButton(onClick = viewModel::retakeQuiz) { Text("Retake quiz") }
+            OutlinedButton(onClick = viewModel::resetToIntro) { Text("Start over") }
         }
 
         val current = state.current
@@ -179,9 +323,14 @@ private fun SwipeStage(
             state.queue.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        "Nothing to suggest yet - handpick some titles into your watchlist first.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        "Nothing matching your picks yet - add more titles to your watchlist!",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(24.dp)
                     )
+                    Button(onClick = viewModel::resetToIntro, modifier = Modifier.padding(top = 12.dp)) {
+                        Text("Back to Start")
+                    }
                 }
             }
             current != null -> Column(
@@ -198,7 +347,8 @@ private fun SwipeStage(
             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("You're all caught up. Reshuffle for more picks from your watchlist.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(onClick = viewModel::reshuffle) { Text("Reshuffle") }
+                    Button(onClick = viewModel::reshuffle) { Text("Reshuffle") }
+                    OutlinedButton(onClick = viewModel::resetToIntro) { Text("Start Over") }
                 }
             }
         }
@@ -212,7 +362,8 @@ private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.width(300.dp),
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
             Box {

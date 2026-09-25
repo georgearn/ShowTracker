@@ -123,20 +123,20 @@ fun PosterOverlayCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .offset(x = 6.dp, y = (-6).dp)
-                    .size(24.dp)
+                    .size(28.dp)
                     .clip(CircleShape)
-                    .background(if (isOn) MaterialTheme.colorScheme.primary else Color(0xFFD8D8D8))
-                    .then(if (!isOn) Modifier.border(1.dp, Color.White, CircleShape) else Modifier)
+                    .background(if (isOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .then(if (!isOn) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape) else Modifier)
                     .clickable(onClick = onOverlayClick),
                 contentAlignment = Alignment.Center
             ) {
                 val (icon, tint) = when (overlayIcon) {
                     OverlayIcon.ADD -> (if (isOn) Icons.Default.Check else Icons.Default.Add) to
-                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color(0xFF5A5A5A))
+                        (if (isOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
                     OverlayIcon.NOTIFY -> (if (isOn) Icons.Default.NotificationsActive else Icons.Default.NotificationsNone) to
-                        (if (isOn) MaterialTheme.colorScheme.onPrimary else Color(0xFF5A5A5A))
+                        (if (isOn) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
             }
         }
         Text(
