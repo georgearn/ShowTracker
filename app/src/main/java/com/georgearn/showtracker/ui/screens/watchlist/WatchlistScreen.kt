@@ -314,6 +314,7 @@ private fun WatchlistRow(item: WatchlistEntity, isReleased: Boolean, actions: Ro
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 ScoreRow(item.imdbRating, item.rottenTomatoesScore, null)
+                seasonChipText(item)?.let { SeasonChip(it) }
             }
             if (isReleased) {
                 IconToggleButton(
@@ -342,4 +343,29 @@ private fun WatchlistRow(item: WatchlistEntity, isReleased: Boolean, actions: Ro
             }
         }
     }
+}
+
+/** "S3 · Mar 12, 2026" for a followed series with a dated season, "S3 out now" for 30 days after. */
+private fun seasonChipText(item: WatchlistEntity): String? {
+    if (!item.followSeasons) return null
+    val season = item.nextSeasonNumber ?: return null
+    val date = item.nextSeasonAirDate ?: return "S$season · date TBA"
+    return if (DateUtils.releaseStatus(date) == ReleaseStatus.RELEASED) {
+        if ((DateUtils.daysSince(date) ?: Long.MAX_VALUE) <= 30) "S$season out now" else null
+    } else {
+        "S$season · ${DateUtils.formatForDisplay(date)}"
+    }
+}
+
+@Composable
+private fun SeasonChip(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onTertiaryContainer,
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(MaterialTheme.colorScheme.tertiaryContainer)
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+    )
 }

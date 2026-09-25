@@ -41,8 +41,18 @@ data class MediaDetail(
     val trailerYoutubeKey: String? = null,
     val seasonCount: Int? = null,
     val episodeCount: Int? = null,
-    val recommendations: List<MediaSummary> = emptyList()
-)
+    val recommendations: List<MediaSummary> = emptyList(),
+    val seriesStatus: String? = null,
+    /** The next season with a scheduled premiere (episode 1 of it is the next episode to air). */
+    val nextSeasonNumber: Int? = null,
+    val nextSeasonAirDate: String? = null,
+    /** Season of the most recently aired episode - bumps on premiere day. */
+    val latestAiredSeason: Int? = null
+) {
+    /** Series that can still get new seasons - the only ones worth following. */
+    val canFollowSeasons: Boolean
+        get() = mediaType == MediaType.TV && seriesStatus in setOf("Returning Series", "In Production", "Planned")
+}
 
 data class CastMember(
     val name: String,

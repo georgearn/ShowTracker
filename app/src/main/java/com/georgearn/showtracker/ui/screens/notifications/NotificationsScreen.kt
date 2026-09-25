@@ -76,16 +76,17 @@ fun NotificationsScreen(
             current == null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            current.outNow.isEmpty() && current.comingUp.isEmpty() -> EmptyState(
+            current.outNow.isEmpty() && current.comingUp.isEmpty() && current.newSeasons.isEmpty() -> EmptyState(
                 icon = Icons.Outlined.NotificationsNone,
                 title = "No release alerts",
-                body = "Tap the bell on any upcoming title and it shows up here, then again when it's out.",
+                body = "Tap the bell on an upcoming title, or turn on new season alerts for a series, and it shows up here.",
                 modifier = Modifier.padding(padding)
             )
             else -> LazyColumn(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = padding.calculateTopPadding() + 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                alertSection("New seasons", "season", current.newSeasons, released = false, onOpenDetail, forSeasons = true)
                 alertSection("Out now", "out", current.outNow, released = true, onOpenDetail)
                 alertSection("Coming up", "soon", current.comingUp, released = false, onOpenDetail)
             }
@@ -98,7 +99,8 @@ private fun LazyListScope.alertSection(
     keyPrefix: String,
     items: List<WatchlistEntity>,
     released: Boolean,
-    onOpenDetail: (Int, String) -> Unit
+    onOpenDetail: (Int, String) -> Unit,
+    forSeasons: Boolean = false
 ) {
     if (items.isEmpty()) return
     item(key = "header_$keyPrefix") {
@@ -111,12 +113,12 @@ private fun LazyListScope.alertSection(
         )
     }
     items(items, key = { "$keyPrefix${it.key}" }) { item ->
-        NotificationRow(item, released, onOpenDetail)
+        NotificationRow(item, if (forSeasons) seasonLine(item) else releaseLine(item, released), onOpenDetail)
     }
 }
 
 @Composable
-private fun NotificationRow(item: WatchlistEntity, released: Boolean, onOpenDetail: (Int, String) -> Unit) {
+private fun NotificationRow(item: WatchlistEntity, line: String, onOpenDetail: (Int, String) -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -133,7 +135,7 @@ private fun NotificationRow(item: WatchlistEntity, released: Boolean, onOpenDeta
             Column(modifier = Modifier.padding(start = 12.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(
-                    releaseLine(item, released),
+                    line,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -157,5 +159,16 @@ private fun releaseLine(item: WatchlistEntity, released: Boolean): String {
         0L -> "Releases today"
         1L -> "Releases tomorrow"
         else -> "Releases in $days days · $date"
+    }
+}
+
+private fun seasonLine(item: WatchlistEntity): String {
+    val season = item.nextSeasonNumber
+    val date = item.nextSeasonAirDate
+    return when (DateUtils.daysUntil(date)) {
+        null -> "Season $season out since ${DateUtils.formatForDisplay(date)}"
+        0L -> "Season $season premieres today"
+        1L -> "Season $season premieres tomorrow"
+        else -> "Season $season premieres ${DateUtils.formatForDisplay(date)}"
     }
 }

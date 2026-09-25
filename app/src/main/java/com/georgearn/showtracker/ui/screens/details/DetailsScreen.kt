@@ -1,6 +1,12 @@
 package com.georgearn.showtracker.ui.screens.details
 
 import android.content.Intent
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.Switch
+import androidx.compose.ui.semantics.Role
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -121,6 +127,9 @@ fun DetailsScreen(
             onToggleWatched = viewModel::toggleWatched,
             onToggleNotify = { enable ->
                 if (enable) withPermission { viewModel.setNotify(true) } else viewModel.setNotify(false)
+            },
+            onToggleFollowSeasons = { enable ->
+                if (enable) withPermission { viewModel.setFollowSeasons(true) } else viewModel.setFollowSeasons(false)
             }
         )
     }
@@ -177,7 +186,8 @@ private fun DetailsContent(
     onOpenDetail: (Int, String) -> Unit,
     onToggleSaved: () -> Unit,
     onToggleWatched: () -> Unit,
-    onToggleNotify: (Boolean) -> Unit
+    onToggleNotify: (Boolean) -> Unit,
+    onToggleFollowSeasons: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
@@ -204,6 +214,15 @@ private fun DetailsContent(
                     onToggleWatched = onToggleWatched,
                     onToggleNotify = onToggleNotify
                 )
+
+                if (detail.canFollowSeasons) {
+                    SeasonAlertCard(
+                        detail = detail,
+                        following = entry?.followSeasons == true,
+                        onToggle = onToggleFollowSeasons,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
 
                 detail.trailerYoutubeKey?.let { key ->
                     OutlinedButton(
@@ -394,6 +413,54 @@ private fun DetailsActions(
             ) {
                 Icon(if (entry.watched) Icons.Default.CheckCircle else Icons.Outlined.CheckCircleOutline, contentDescription = null)
             }
+        }
+    }
+}
+
+/** Whole card toggles, so the switch's small target isn't the only way to flip it. */
+@Composable
+private fun SeasonAlertCard(
+    detail: MediaDetail,
+    following: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val nextSeason = detail.nextSeasonNumber
+    val nextDate = detail.nextSeasonAirDate
+    val status = when {
+        nextSeason != null && nextDate != null -> "Season $nextSeason premieres ${DateUtils.formatForDisplay(nextDate)}"
+        nextSeason != null -> "Season $nextSeason is coming, date TBA"
+        else -> "No new season dated yet"
+    }
+    OutlinedCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(CardDefaults.outlinedShape)
+            .toggleable(value = following, role = Role.Switch, onValueChange = onToggle)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Outlined.NewReleases,
+                contentDescription = null,
+                tint = if (following) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
+            ) {
+                Text("New season alerts", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    if (following) "$status. We'll tell you when a season is dated and when it airs." else status,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            // Visual only: the card carries the toggle semantics and click.
+            Switch(checked = following, onCheckedChange = null)
         }
     }
 }

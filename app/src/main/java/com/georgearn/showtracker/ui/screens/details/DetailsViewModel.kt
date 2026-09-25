@@ -40,7 +40,9 @@ class DetailsViewModel @Inject constructor(
         viewModelScope.launch {
             _state.value = UiState.Loading
             _state.value = try {
-                UiState.Success(repository.getDetail(tmdbId, mediaType))
+                val detail = repository.getDetail(tmdbId, mediaType)
+                repository.refreshSeasonInfo(detail)
+                UiState.Success(detail)
             } catch (t: Throwable) {
                 UiState.Error(t.message ?: "Couldn't load details.")
             }
@@ -64,5 +66,10 @@ class DetailsViewModel @Inject constructor(
     fun setNotify(enabled: Boolean) {
         val detail = (_state.value as? UiState.Success)?.data ?: return
         viewModelScope.launch { repository.setNotifyOnRelease(detail, enabled) }
+    }
+
+    fun setFollowSeasons(enabled: Boolean) {
+        val detail = (_state.value as? UiState.Success)?.data ?: return
+        viewModelScope.launch { repository.setFollowSeasons(detail, enabled) }
     }
 }

@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
-@Database(entities = [WatchlistEntity::class], version = 4, exportSchema = false)
+@Database(entities = [WatchlistEntity::class], version = 5, exportSchema = false)
 abstract class ShowTrackerDatabase : RoomDatabase() {
     abstract fun watchlistDao(): WatchlistDao
 
@@ -52,6 +52,16 @@ abstract class ShowTrackerDatabase : RoomDatabase() {
                 )
                 db.execSQL("DROP TABLE `watchlist`")
                 db.execSQL("ALTER TABLE `watchlist_new` RENAME TO `watchlist`")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `watchlist` ADD COLUMN `followSeasons` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `watchlist` ADD COLUMN `nextSeasonNumber` INTEGER")
+                db.execSQL("ALTER TABLE `watchlist` ADD COLUMN `nextSeasonAirDate` TEXT")
+                db.execSQL("ALTER TABLE `watchlist` ADD COLUMN `lastAnnouncedSeason` INTEGER")
+                db.execSQL("ALTER TABLE `watchlist` ADD COLUMN `lastReleasedSeason` INTEGER")
             }
         }
     }

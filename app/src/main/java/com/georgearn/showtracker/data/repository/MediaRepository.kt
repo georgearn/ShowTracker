@@ -198,8 +198,14 @@ class MediaRepository @Inject constructor(
 
     // ---------- Detail (TMDB + OMDb merge) ----------
 
-    suspend fun getDetail(tmdbId: Int, mediaType: MediaType): MediaDetail {
-        val detail = if (mediaType == MediaType.MOVIE) tmdbApi.movieDetail(tmdbId) else tmdbApi.tvDetail(tmdbId)
+    /** [bypassCache] is for the background worker, which must see date changes the same day. */
+    suspend fun getDetail(tmdbId: Int, mediaType: MediaType, bypassCache: Boolean = false): MediaDetail {
+        val cacheControl = if (bypassCache) "no-cache" else null
+        val detail = if (mediaType == MediaType.MOVIE) {
+            tmdbApi.movieDetail(tmdbId, cacheControl = cacheControl)
+        } else {
+            tmdbApi.tvDetail(tmdbId, cacheControl = cacheControl)
+        }
         val region = userPrefs.watchRegion.first()
         val providers = detail.watchProviders?.results?.get(region)
         val imdbId = detail.resolvedImdbId
@@ -248,6 +254,10 @@ class MediaRepository @Inject constructor(
                 .sortedWith(compareByDescending<TmdbVideo> { it.type == "Trailer" }.thenByDescending { it.official })
                 .firstOrNull()?.key,
             seasonCount = detail.numberOfSeasons,
+            seriesStatus = detail.status,
+            nextSeasonNumber = detail.nextEpisodeToAir?.takeIf { it.episodeNumber == 1 }?.seasonNumber,
+            nextSeasonAirDate = detail.nextEpisodeToAir?.takeIf { it.episodeNumber == 1 }?.airDate?.ifBlank { null },
+            latestAiredSeason = detail.lastEpisodeToAir?.seasonNumber,
             episodeCount = detail.numberOfEpisodes,
             recommendations = detail.recommendations?.results.orEmpty()
                 .filter { it.posterPath != null }
@@ -283,7 +293,11 @@ class MediaRepository @Inject constructor(
                 .sortedByDescending { it.releaseDate },
             comingUp = watched
                 .filter { DateUtils.releaseStatus(it.releaseDate) != ReleaseStatus.RELEASED }
-                .sortedWith(compareBy(nullsLast<String>()) { it.releaseDate?.ifBlank { null } })
+                .sortedWith(compareBy(nullsLast<String>()) { it.releaseDate?.ifBlank { null } }),
+            newSeasons = list
+                .filter { it.followSeasons && it.nextSeasonNumber != null && it.nextSeasonAirDate != null }
+                .filter { (DateUtils.daysSince(it.nextSeasonAirDate) ?: 0L) <= 30 }
+                .sortedBy { it.nextSeasonAirDate }
         )
     }
 
@@ -316,6 +330,41 @@ class MediaRepository @Inject constructor(
                 notifyOnRelease = notifyOnRelease && detail.releaseStatus == ReleaseStatus.UPCOMING,
                 lastKnownReleaseStatus = detail.releaseStatus.name
             )
+        )
+    }
+
+    /**
+     * Turns new-season alerts on or off, saving the series first if needed. Enabling records what
+     * is already known (a dated season, the latest aired one) so only future changes notify.
+     */
+    suspend fun setFollowSeasons(detail: MediaDetail, enabled: Boolean) {
+        if (detail.mediaType != MediaType.TV) return
+        if (watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) == null) {
+            if (!enabled) return
+            addToWatchlist(detail, notifyOnRelease = false)
+        }
+        val existing = watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) ?: return
+        watchlistDao.update(
+            if (enabled) {
+                existing.copy(
+                    followSeasons = true,
+                    nextSeasonNumber = detail.nextSeasonNumber ?: existing.nextSeasonNumber,
+                    nextSeasonAirDate = detail.nextSeasonAirDate ?: existing.nextSeasonAirDate,
+                    lastAnnouncedSeason = detail.nextSeasonNumber ?: existing.lastAnnouncedSeason,
+                    lastReleasedSeason = detail.latestAiredSeason ?: existing.lastReleasedSeason ?: 0
+                )
+            } else {
+                existing.copy(followSeasons = false)
+            }
+        )
+    }
+
+    /** Keeps the stored next-season date current when a followed series is opened. Never notifies. */
+    suspend fun refreshSeasonInfo(detail: MediaDetail) {
+        val existing = watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) ?: return
+        if (!existing.followSeasons || detail.nextSeasonNumber == null) return
+        watchlistDao.update(
+            existing.copy(nextSeasonNumber = detail.nextSeasonNumber, nextSeasonAirDate = detail.nextSeasonAirDate)
         )
     }
 
@@ -421,12 +470,22 @@ class MediaRepository @Inject constructor(
 
 data class ReleaseAlerts(
     val outNow: List<WatchlistEntity>,
-    val comingUp: List<WatchlistEntity>
+    val comingUp: List<WatchlistEntity>,
+    /** Followed series with a dated season premiering soon or in the last 30 days. */
+    val newSeasons: List<WatchlistEntity> = emptyList()
 ) {
-    /** Only fresh releases and titles due within a week earn a badge - not every bell ever set. */
+    /**
+     * Only fresh releases and titles due within a week earn a badge - not every bell ever set.
+     * Season keys include the season number and phase, so a newly dated season badges once and
+     * its premiere badges again.
+     */
     val badgeKeys: Set<String>
         get() = outNow.map { "out:${it.key}" }.toSet() +
-            comingUp.filter { (DateUtils.daysUntil(it.releaseDate) ?: Long.MAX_VALUE) <= 7 }.map { "soon:${it.key}" }
+            comingUp.filter { (DateUtils.daysUntil(it.releaseDate) ?: Long.MAX_VALUE) <= 7 }.map { "soon:${it.key}" } +
+            newSeasons.map { item ->
+                val phase = if (DateUtils.releaseStatus(item.nextSeasonAirDate) == ReleaseStatus.RELEASED) "aired" else "dated"
+                "season:${item.key}:${item.nextSeasonNumber}:$phase"
+            }
 }
 
 enum class SuggestionMood(val genres: List<String>?) {

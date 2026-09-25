@@ -66,13 +66,23 @@ data class TmdbDetailResponse(
     val videos: TmdbVideos? = null,
     val recommendations: TmdbSearchResponse? = null,
     @Json(name = "number_of_seasons") val numberOfSeasons: Int? = null, // tv only
-    @Json(name = "number_of_episodes") val numberOfEpisodes: Int? = null // tv only
+    @Json(name = "number_of_episodes") val numberOfEpisodes: Int? = null, // tv only
+    val status: String? = null, // tv: "Returning Series", "Ended", "Canceled", "In Production", "Planned"
+    @Json(name = "next_episode_to_air") val nextEpisodeToAir: TmdbEpisode? = null, // tv only
+    @Json(name = "last_episode_to_air") val lastEpisodeToAir: TmdbEpisode? = null  // tv only
 ) {
     val resolvedTitle: String get() = title ?: name ?: "Untitled"
     val resolvedDate: String? get() = releaseDate ?: firstAirDate
     val resolvedRuntime: Int? get() = runtime ?: episodeRunTime?.firstOrNull()
     val resolvedImdbId: String? get() = imdbId ?: externalIds?.imdbId
 }
+
+@JsonClass(generateAdapter = true)
+data class TmdbEpisode(
+    @Json(name = "air_date") val airDate: String? = null,
+    @Json(name = "season_number") val seasonNumber: Int,
+    @Json(name = "episode_number") val episodeNumber: Int
+)
 
 @JsonClass(generateAdapter = true)
 data class TmdbVideos(

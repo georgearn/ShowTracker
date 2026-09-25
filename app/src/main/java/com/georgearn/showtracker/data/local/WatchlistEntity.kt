@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 
 /**
@@ -24,7 +25,14 @@ data class WatchlistEntity(
     val watchedAtEpochMillis: Long? = null,
     val notifyOnRelease: Boolean = false,
     val lastKnownReleaseStatus: String = "UNKNOWN", // ReleaseStatus.name cache for the background worker diff
-    val releaseNotificationSent: Boolean = false
+    val releaseNotificationSent: Boolean = false,
+    // New-season alerts (tv only). The two "last" fields remember what was already notified,
+    // so each season triggers one "premieres on" and one "is out" notification at most.
+    @ColumnInfo(defaultValue = "0") val followSeasons: Boolean = false,
+    val nextSeasonNumber: Int? = null,
+    val nextSeasonAirDate: String? = null,
+    val lastAnnouncedSeason: Int? = null,
+    val lastReleasedSeason: Int? = null
 )
 
 /** TMDB reuses numeric ids across movies and tv, so identity is always the (type, id) pair. */

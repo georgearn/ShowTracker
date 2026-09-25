@@ -17,6 +17,9 @@ interface WatchlistDao {
     @Query("SELECT * FROM watchlist WHERE notifyOnRelease = 1 AND releaseNotificationSent = 0")
     suspend fun getPendingReleaseWatches(): List<WatchlistEntity>
 
+    @Query("SELECT * FROM watchlist WHERE followSeasons = 1 AND mediaType = 'tv'")
+    suspend fun getFollowedSeries(): List<WatchlistEntity>
+
     @Query("SELECT * FROM watchlist WHERE tmdbId = :tmdbId AND mediaType = :mediaType LIMIT 1")
     suspend fun getById(tmdbId: Int, mediaType: String): WatchlistEntity?
 
