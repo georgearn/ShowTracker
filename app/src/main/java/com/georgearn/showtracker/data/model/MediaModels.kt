@@ -16,6 +16,8 @@ data class MediaSummary(
     val rottenTomatoesScore: String? = null // e.g. "88%", filled in only where callers enrich it
 )
 
+val MediaSummary.key: String get() = com.georgearn.showtracker.data.local.mediaKey(mediaType.apiValue, tmdbId)
+
 /** Full detail screen payload: TMDB detail + watch providers + OMDb (IMDb/RT) ratings merged. */
 data class MediaDetail(
     val tmdbId: Int,
@@ -34,7 +36,12 @@ data class MediaDetail(
     val watchProviders: List<WatchProvider>,
     val watchProvidersRegion: String,
     val releaseStatus: ReleaseStatus,
-    val cast: List<CastMember> = emptyList()
+    val cast: List<CastMember> = emptyList(),
+    /** YouTube video key of the best trailer, when TMDB lists one. */
+    val trailerYoutubeKey: String? = null,
+    val seasonCount: Int? = null,
+    val episodeCount: Int? = null,
+    val recommendations: List<MediaSummary> = emptyList()
 )
 
 data class CastMember(

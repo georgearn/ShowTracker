@@ -1,6 +1,30 @@
 package com.georgearn.showtracker.ui.screens.foryou
 
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import com.georgearn.showtracker.data.local.key
+import com.georgearn.showtracker.ui.screens.common.PosterImage
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.sign
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,7 +42,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -41,20 +64,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.georgearn.showtracker.data.local.WatchlistEntity
 import com.georgearn.showtracker.data.model.ReleaseStatus
 import com.georgearn.showtracker.data.repository.LengthPref
 import com.georgearn.showtracker.data.repository.SuggestionMood
-import com.georgearn.showtracker.data.repository.imageUrl
 import com.georgearn.showtracker.ui.screens.common.ScoreRow
 import com.georgearn.showtracker.util.DateUtils
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ForYouScreen(
     onOpenDetail: (Int, String) -> Unit,
@@ -62,16 +83,27 @@ fun ForYouScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Column(Modifier.padding(top = 20.dp, bottom = 12.dp)) {
-            Text("What to Watch", style = MaterialTheme.typography.headlineSmall)
-            Text("Picked from your watchlist", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+    Column(Modifier.fillMaxSize()) {
+        TopAppBar(
+            title = {
+                Column {
+                    Text("What to Watch")
+                    Text(
+                        "Picked from your watchlist",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            windowInsets = WindowInsets(0, 0, 0, 0)
+        )
 
-        when (state.stage) {
-            RecStage.INTRO -> IntroStage(viewModel)
-            RecStage.QUIZ -> QuizStepStage(state, viewModel)
-            RecStage.SWIPE -> SwipeStage(state, viewModel, onOpenDetail)
+        Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+            when (state.stage) {
+                RecStage.INTRO -> IntroStage(viewModel)
+                RecStage.QUIZ -> QuizStepStage(state, viewModel)
+                RecStage.SWIPE -> SwipeStage(state, viewModel, onOpenDetail)
+            }
         }
     }
 }
@@ -88,7 +120,7 @@ private fun IntroStage(viewModel: ForYouViewModel) {
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(24.dp),
+            shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
         ) {
             Column(
@@ -179,7 +211,7 @@ private fun QuizStepStage(state: ForYouState, viewModel: ForYouViewModel) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 12.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(CircleShape)
         )
 
         Card(
@@ -255,12 +287,6 @@ private fun QuizStepStage(state: ForYouState, viewModel: ForYouViewModel) {
                 .padding(top = 24.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedButton(
-                onClick = viewModel::previousQuizStep,
-                modifier = Modifier.weight(1f).height(48.dp)
-            ) {
-                Text("Back")
-            }
             Button(
                 onClick = viewModel::nextQuizStep,
                 modifier = Modifier.weight(1f).height(48.dp)
@@ -280,8 +306,9 @@ private fun QuizChoiceOption(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(12.dp),
+            .clip(MaterialTheme.shapes.medium)
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onSelect),
+        shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
         )
@@ -315,7 +342,7 @@ private fun SwipeStage(
 ) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            OutlinedButton(onClick = viewModel::resetToIntro) { Text("Start over") }
+            TextButton(onClick = viewModel::resetToIntro) { Text("Start over") }
         }
 
         val current = state.current
@@ -338,10 +365,19 @@ private fun SwipeStage(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                RecCard(current, Modifier.clickable { onOpenDetail(current.tmdbId, current.mediaType) })
+                SwipeableRecCard(
+                    item = current,
+                    onDecide = viewModel::decide,
+                    onOpen = { onOpenDetail(current.tmdbId, current.mediaType) }
+                )
+                Text(
+                    "Swipe right to keep, left to skip",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    RoundActionButton(Icons.Default.Close, onClick = { viewModel.decide(false) })
-                    RoundActionButton(Icons.Default.Check, primary = true, onClick = { viewModel.decide(true) })
+                    RoundActionButton(Icons.Default.Close, label = "Skip", onClick = { viewModel.decide(false) })
+                    RoundActionButton(Icons.Default.Check, label = "Keep", primary = true, onClick = { viewModel.decide(true) })
                 }
             }
             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -360,32 +396,34 @@ private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
     val isUpcoming = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.UPCOMING
     val genres = item.genres.split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3)
     Card(
-        modifier = modifier.width(300.dp),
-        shape = RoundedCornerShape(20.dp),
+        modifier = modifier
+            .widthIn(max = 360.dp)
+            .fillMaxWidth(),
+        shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column {
             Box {
-                AsyncImage(
-                    model = imageUrl(item.posterPath),
-                    contentDescription = item.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f).clip(RoundedCornerShape(0.dp))
+                PosterImage(
+                    path = item.posterPath,
+                    contentDescription = null,
+                    shape = RectangleShape,
+                    modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)
                 )
                 if (!item.imdbRating.isNullOrBlank()) {
                     Row(
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(12.dp)
-                            .clip(RoundedCornerShape(20.dp))
+                            .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.65f))
                             .padding(horizontal = 10.dp, vertical = 5.dp)
                     ) {
                         Text(
                             "★ ${item.imdbRating.removeSuffix("/10")}",
                             style = MaterialTheme.typography.labelLarge,
-                            color = androidx.compose.ui.graphics.Color.White
+                            color = Color.White
                         )
                     }
                 }
@@ -400,7 +438,7 @@ private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .clip(MaterialTheme.shapes.small)
                                     .background(MaterialTheme.colorScheme.secondaryContainer)
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             )
@@ -419,14 +457,73 @@ private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun RoundActionButton(icon: androidx.compose.ui.graphics.vector.ImageVector, primary: Boolean = false, onClick: () -> Unit) {
+private fun RoundActionButton(icon: ImageVector, label: String, primary: Boolean = false, onClick: () -> Unit) {
     IconButton(
         onClick = onClick,
         modifier = Modifier
-            .size(54.dp)
+            .size(56.dp)
             .clip(CircleShape)
             .background(if (primary) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Icon(icon, contentDescription = null, tint = if (primary) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, contentDescription = label, tint = if (primary) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/**
+ * Drag sideways past the threshold to decide; the card flies off, then the next one appears.
+ * Tapping opens the detail page. The buttons below stay as the non-gesture alternative.
+ */
+@Composable
+private fun SwipeableRecCard(item: WatchlistEntity, onDecide: (Boolean) -> Unit, onOpen: () -> Unit) {
+    val offsetX = remember(item.key) { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val threshold = with(LocalDensity.current) { 120.dp.toPx() }
+    Box(contentAlignment = Alignment.TopCenter) {
+        RecCard(
+            item,
+            Modifier
+                .graphicsLayer {
+                    translationX = offsetX.value
+                    rotationZ = offsetX.value / 40f
+                }
+                .pointerInput(item.key) {
+                    detectHorizontalDragGestures(
+                        onDragEnd = {
+                            scope.launch {
+                                val x = offsetX.value
+                                if (abs(x) > threshold) {
+                                    offsetX.animateTo(sign(x) * size.width * 1.5f, tween(durationMillis = 200))
+                                    onDecide(x > 0)
+                                } else {
+                                    offsetX.animateTo(0f, spring())
+                                }
+                            }
+                        },
+                        onDragCancel = { scope.launch { offsetX.animateTo(0f, spring()) } },
+                        onHorizontalDrag = { change, dragAmount ->
+                            change.consume()
+                            scope.launch { offsetX.snapTo(offsetX.value + dragAmount) }
+                        }
+                    )
+                }
+                .clip(MaterialTheme.shapes.extraLarge)
+                .clickable(onClick = onOpen)
+        )
+        // Keep / Skip stamp fades in with the drag distance.
+        val x = offsetX.value
+        if (x != 0f) {
+            val keep = x > 0
+            Text(
+                if (keep) "KEEP" else "SKIP",
+                style = MaterialTheme.typography.titleLarge,
+                color = if (keep) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onError,
+                modifier = Modifier
+                    .padding(top = 24.dp)
+                    .graphicsLayer { alpha = (abs(offsetX.value) / threshold).coerceIn(0f, 1f) }
+                    .clip(MaterialTheme.shapes.small)
+                    .background(if (keep) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            )
+        }
     }
 }

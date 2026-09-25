@@ -59,13 +59,13 @@ interface TmdbApi {
     @GET("movie/{id}")
     suspend fun movieDetail(
         @Path("id") id: Int,
-        @Query("append_to_response") append: String = "watch/providers,credits"
+        @Query("append_to_response") append: String = "watch/providers,credits,videos,recommendations"
     ): TmdbDetailResponse
 
     @GET("tv/{id}")
     suspend fun tvDetail(
         @Path("id") id: Int,
-        @Query("append_to_response") append: String = "watch/providers,external_ids,credits"
+        @Query("append_to_response") append: String = "watch/providers,external_ids,credits,videos,recommendations"
     ): TmdbDetailResponse
 
     @GET("genre/movie/list")

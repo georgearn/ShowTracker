@@ -1,11 +1,13 @@
 package com.georgearn.showtracker.ui.screens.watchlist
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,70 +16,108 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.NotificationsActive
-import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.CheckCircleOutline
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material3.Card
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.georgearn.showtracker.data.local.WatchlistEntity
-import com.georgearn.showtracker.data.repository.imageUrl
+import com.georgearn.showtracker.data.local.key
+import com.georgearn.showtracker.data.model.ReleaseStatus
+import com.georgearn.showtracker.ui.screens.common.EmptyState
+import com.georgearn.showtracker.ui.screens.common.PosterImage
 import com.georgearn.showtracker.ui.screens.common.ScoreRow
+import com.georgearn.showtracker.ui.screens.common.rememberNotificationPermissionGate
 import com.georgearn.showtracker.util.DateUtils
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WatchlistScreen(
     onOpenDetail: (Int, String) -> Unit,
     viewModel: WatchlistViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val withPermission = rememberNotificationPermissionGate()
+    val actions = remember(viewModel) {
+        RowActions(
+            open = { item -> onOpenDetail(item.tmdbId, item.mediaType) },
+            toggleWatched = viewModel::toggleWatched,
+            remove = viewModel::remove,
+            toggleNotify = { item ->
+                if (item.notifyOnRelease) viewModel.toggleNotify(item) else withPermission { viewModel.toggleNotify(item) }
+            }
+        )
+    }
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 20.dp)) {
-            Text("My Watchlist", style = MaterialTheme.typography.headlineSmall)
-            val count = state.readyToWatch.count + state.waitingOnRelease.count + state.history.count
-            Text("$count saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        val count = state.readyToWatch.count + state.waitingOnRelease.count + state.history.count
+        TopAppBar(
+            title = {
+                Column {
+                    Text("My Watchlist")
+                    Text(
+                        "$count saved",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            actions = { OrganizationMenu(state.organization, viewModel::setOrganization) },
+            windowInsets = WindowInsets(0, 0, 0, 0)
+        )
 
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        SingleChoiceSegmentedButtonRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
         ) {
-            WatchlistTab.entries.forEach { t ->
-                FilterChip(
+            WatchlistTab.entries.forEachIndexed { index, t ->
+                SegmentedButton(
                     selected = state.tab == t,
                     onClick = { viewModel.setTab(t) },
-                    label = { Text(if (t == WatchlistTab.HISTORY) "${t.label} (${state.history.count})" else t.label) }
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            WatchlistOrganization.entries.forEach { org ->
-                FilterChip(
-                    selected = state.organization == org,
-                    onClick = { viewModel.setOrganization(org) },
-                    label = { Text(org.label) }
-                )
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = WatchlistTab.entries.size)
+                ) {
+                    Text(if (t == WatchlistTab.HISTORY) "${t.label} (${state.history.count})" else t.label)
+                }
             }
         }
 
@@ -87,30 +127,61 @@ fun WatchlistScreen(
         }
 
         if (isEmpty) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    when (state.tab) {
-                        WatchlistTab.LIST -> "Nothing saved yet. Add titles from Home or Discover."
-                        WatchlistTab.HISTORY -> "Nothing watched yet. Mark titles as watched from your list."
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(24.dp)
+            when (state.tab) {
+                WatchlistTab.LIST -> EmptyState(
+                    icon = Icons.Outlined.BookmarkBorder,
+                    title = "Nothing saved yet",
+                    body = "Tap + on any poster in Home or Discover to save it here."
+                )
+                WatchlistTab.HISTORY -> EmptyState(
+                    icon = Icons.Outlined.History,
+                    title = "Nothing watched yet",
+                    body = "Swipe a title right, or tap its check mark, once you've watched it."
                 )
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 when (state.tab) {
                     WatchlistTab.LIST -> {
-                        section("r", state.readyToWatch, onOpenDetail, viewModel)
-                        section("w", state.waitingOnRelease, onOpenDetail, viewModel)
+                        section("r", state.readyToWatch, actions)
+                        section("w", state.waitingOnRelease, actions)
                     }
-                    WatchlistTab.HISTORY -> {
-                        section("h", state.history, onOpenDetail, viewModel)
-                    }
+                    WatchlistTab.HISTORY -> section("h", state.history, actions)
                 }
+            }
+        }
+    }
+}
+
+private class RowActions(
+    val open: (WatchlistEntity) -> Unit,
+    val toggleWatched: (WatchlistEntity) -> Unit,
+    val remove: (WatchlistEntity) -> Unit,
+    val toggleNotify: (WatchlistEntity) -> Unit
+)
+
+@Composable
+private fun OrganizationMenu(current: WatchlistOrganization, onSelect: (WatchlistOrganization) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        IconButton(onClick = { open = true }) {
+            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Group list")
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            WatchlistOrganization.entries.forEach { org ->
+                DropdownMenuItem(
+                    text = { Text(org.label) },
+                    onClick = {
+                        onSelect(org)
+                        open = false
+                    },
+                    leadingIcon = {
+                        if (org == current) Icon(Icons.Default.Check, contentDescription = null)
+                    }
+                )
             }
         }
     }
@@ -119,17 +190,16 @@ fun WatchlistScreen(
 private fun LazyListScope.section(
     keyPrefix: String,
     section: WatchlistSection,
-    onOpenDetail: (Int, String) -> Unit,
-    viewModel: WatchlistViewModel
+    actions: RowActions
 ) {
     if (section.count == 0) return
-    item { SectionHeader(section.title, section.count) }
+    item(key = "section_$keyPrefix") { SectionHeader(section.title, section.count) }
     section.groups.forEach { group ->
         if (group.title != null) {
-            item { GroupHeader(group.title) }
+            item(key = "group_${keyPrefix}_${group.title}") { GroupHeader(group.title) }
         }
-        items(group.items, key = { "$keyPrefix${it.tmdbId}" }) { item ->
-            WatchlistRow(item, onOpenDetail, viewModel)
+        items(group.items, key = { "$keyPrefix${it.key}" }) { item ->
+            SwipeableWatchlistRow(item, actions, Modifier.animateItem())
         }
     }
 }
@@ -139,7 +209,9 @@ private fun SectionHeader(title: String, count: Int) {
     Text(
         text = "$title ($count)",
         style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier.padding(vertical = 4.dp)
+        modifier = Modifier
+            .padding(top = 4.dp)
+            .semantics { heading() }
     )
 }
 
@@ -149,63 +221,123 @@ private fun GroupHeader(title: String) {
         text = title,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 2.dp, bottom = 2.dp)
+        modifier = Modifier.semantics { heading() }
     )
 }
 
+/** Swipe left removes (with Undo), swipe right marks watched - released titles only. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WatchlistRow(
-    item: WatchlistEntity,
-    onOpenDetail: (Int, String) -> Unit,
-    viewModel: WatchlistViewModel
-) {
+private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, modifier: Modifier = Modifier) {
+    val isReleased = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.RELEASED
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    actions.remove(item)
+                    true
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    actions.toggleWatched(item)
+                    false // the row stays; it just moves between sections
+                }
+                SwipeToDismissBoxValue.Settled -> false
+            }
+        }
+    )
+    SwipeToDismissBox(
+        state = dismissState,
+        enableDismissFromStartToEnd = isReleased,
+        modifier = modifier,
+        backgroundContent = {
+            val towardsEnd = dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd
+            val container = if (towardsEnd) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
+            val content = if (towardsEnd) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(CardDefaults.shape)
+                    .background(container)
+                    .padding(horizontal = 24.dp),
+                contentAlignment = if (towardsEnd) Alignment.CenterStart else Alignment.CenterEnd
+            ) {
+                Icon(
+                    if (towardsEnd) Icons.Default.CheckCircle else Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = content
+                )
+            }
+        }
+    ) {
+        WatchlistRow(item, isReleased, actions)
+    }
+}
+
+@Composable
+private fun WatchlistRow(item: WatchlistEntity, isReleased: Boolean, actions: RowActions) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onOpenDetail(item.tmdbId, item.mediaType) }
+            .clip(CardDefaults.shape)
+            .clickable { actions.open(item) }
+            .semantics {
+                customActions = listOf(
+                    CustomAccessibilityAction("Remove from watchlist") {
+                        actions.remove(item)
+                        true
+                    }
+                )
+            }
     ) {
-        Row(modifier = Modifier.padding(10.dp)) {
-            AsyncImage(
-                model = imageUrl(item.posterPath),
-                contentDescription = item.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .width(64.dp)
-                    .aspectRatio(2f / 3f)
-                    .clip(RoundedCornerShape(8.dp))
+        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            PosterImage(
+                path = item.posterPath,
+                contentDescription = null,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.width(64.dp).aspectRatio(2f / 3f)
             )
             Column(
                 modifier = Modifier
-                    .padding(start = 12.dp)
-                    .weight(1f)
+                    .padding(horizontal = 12.dp)
+                    .weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(item.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                 Text(
-                    DateUtils.formatForDisplay(item.releaseDate),
+                    item.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    if (isReleased) DateUtils.formatForDisplay(item.releaseDate) else "Releases ${DateUtils.countdownLabel(item.releaseDate)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 ScoreRow(item.imdbRating, item.rottenTomatoesScore, null)
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (DateUtils.releaseStatus(item.releaseDate).name == "UPCOMING") {
-                    IconButton(onClick = { viewModel.toggleNotify(item) }) {
-                        Icon(
-                            if (item.notifyOnRelease) Icons.Default.NotificationsActive else Icons.Default.NotificationsNone,
-                            contentDescription = "Notify on release"
-                        )
-                    }
-                } else {
-                    IconButton(onClick = { viewModel.toggleWatched(item) }) {
-                        Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "Mark watched",
-                            tint = if (item.watched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+            if (isReleased) {
+                IconToggleButton(
+                    checked = item.watched,
+                    onCheckedChange = { actions.toggleWatched(item) },
+                    modifier = Modifier.semantics { contentDescription = "Watched" }
+                ) {
+                    Icon(
+                        if (item.watched) Icons.Default.CheckCircle else Icons.Outlined.CheckCircleOutline,
+                        contentDescription = null,
+                        tint = if (item.watched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                IconButton(onClick = { viewModel.remove(item) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Remove")
+            } else {
+                IconToggleButton(
+                    checked = item.notifyOnRelease,
+                    onCheckedChange = { actions.toggleNotify(item) },
+                    modifier = Modifier.semantics { contentDescription = "Release alert" }
+                ) {
+                    Icon(
+                        if (item.notifyOnRelease) Icons.Default.NotificationsActive else Icons.Outlined.NotificationsNone,
+                        contentDescription = null,
+                        tint = if (item.notifyOnRelease) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

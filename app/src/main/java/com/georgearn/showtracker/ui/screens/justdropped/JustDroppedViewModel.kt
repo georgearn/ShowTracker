@@ -3,6 +3,7 @@ package com.georgearn.showtracker.ui.screens.justdropped
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.georgearn.showtracker.data.local.ContentRefreshBus
+import com.georgearn.showtracker.data.local.key
 import com.georgearn.showtracker.data.model.MediaSummary
 import com.georgearn.showtracker.data.model.MediaType
 import com.georgearn.showtracker.data.repository.MediaRepository
@@ -66,21 +67,24 @@ class JustDroppedViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _state.map { it is UiState.Loading }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    val savedIds: StateFlow<Set<Int>> = repository.observeWatchlist()
-        .map { list -> list.map { it.tmdbId }.toSet() }
+    val error: StateFlow<String?> = _state.map { (it as? UiState.Error)?.message }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val savedKeys: StateFlow<Set<String>> = repository.observeWatchlist()
+        .map { list -> list.map { it.key }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     init {
         load()
-        refreshBus.events.onEach { load() }.launchIn(viewModelScope)
+        refreshBus.events.onEach { load(forceRefresh = true) }.launchIn(viewModelScope)
     }
 
-    fun load() {
+    fun load(forceRefresh: Boolean = false) {
         viewModelScope.launch {
             _state.value = UiState.Loading
             try {
                 _genreNames.value = repository.genreNames()
-                _state.value = UiState.Success(repository.recentlyReleased())
+                _state.value = UiState.Success(repository.recentlyReleased(forceRefresh = forceRefresh))
             } catch (t: Throwable) {
                 _state.value = UiState.Error(t.message ?: "Couldn't load. Check your connection.")
             }

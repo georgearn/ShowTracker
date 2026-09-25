@@ -20,6 +20,7 @@ object DatabaseModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): ShowTrackerDatabase =
         Room.databaseBuilder(context, ShowTrackerDatabase::class.java, ShowTrackerDatabase.DB_NAME)
+            .addMigrations(ShowTrackerDatabase.MIGRATION_3_4)
             .build()
 
     @Provides

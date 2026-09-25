@@ -43,9 +43,9 @@ class ReleaseCheckWorker @AssistedInject constructor(
 
                 if (wasUpcoming && nowReleased) {
                     NotificationHelper.notifyReleased(applicationContext, item.tmdbId, item.mediaType, item.title)
-                    watchlistDao.markNotified(item.tmdbId)
+                    watchlistDao.markNotified(item.tmdbId, item.mediaType)
                 }
-                watchlistDao.updateStatus(item.tmdbId, detail.releaseStatus.name)
+                watchlistDao.updateStatus(item.tmdbId, item.mediaType, detail.releaseStatus.name)
             }
             Result.success()
         } catch (t: Throwable) {
