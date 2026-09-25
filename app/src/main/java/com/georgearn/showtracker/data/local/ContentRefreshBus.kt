@@ -14,4 +14,9 @@ class ContentRefreshBus @Inject constructor() {
     suspend fun notifyChanged() {
         _events.emit(Unit)
     }
+
+    /** Non-suspending variant for callers without a live scope, e.g. ViewModel.onCleared. */
+    fun notifyChangedNow() {
+        _events.tryEmit(Unit)
+    }
 }

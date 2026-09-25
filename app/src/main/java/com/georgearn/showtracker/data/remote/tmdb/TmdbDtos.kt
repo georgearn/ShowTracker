@@ -16,6 +16,7 @@ data class TmdbMultiResult(
     val title: String? = null,          // movie
     val name: String? = null,           // tv
     @Json(name = "poster_path") val posterPath: String? = null,
+    @Json(name = "backdrop_path") val backdropPath: String? = null,
     @Json(name = "release_date") val releaseDate: String? = null,      // movie
     @Json(name = "first_air_date") val firstAirDate: String? = null,   // tv
     val overview: String? = null,

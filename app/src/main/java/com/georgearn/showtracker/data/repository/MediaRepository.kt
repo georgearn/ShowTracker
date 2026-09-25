@@ -2,6 +2,7 @@ package com.georgearn.showtracker.data.repository
 
 import com.georgearn.showtracker.BuildConfig
 import com.georgearn.showtracker.data.local.Countries
+import com.georgearn.showtracker.data.local.FeedQuality
 import com.georgearn.showtracker.data.local.UserPrefs
 import com.georgearn.showtracker.data.local.WatchlistDao
 import com.georgearn.showtracker.data.local.WatchlistEntity
@@ -44,6 +45,7 @@ class MediaRepository @Inject constructor(
     private var cachedRecentlyReleased: Pair<Long, List<MediaSummary>>? = null
     private var cachedUpcoming: Pair<Long, List<MediaSummary>>? = null
     private val CACHE_DURATION_MS = 3 * 24 * 60 * 60 * 1000L // 3 days
+    private val SHORT_FILM_MAX_MINUTES = 40 // Academy cut-off for a short film
 
     /** id -> name for both movie and tv genres, fetched once and cached for the process lifetime. */
     suspend fun genreNames(): Map<Int, String> {
@@ -71,12 +73,14 @@ class MediaRepository @Inject constructor(
     suspend fun trending(): List<MediaSummary> {
         val blocked = userPrefs.blockedCountries.first()
         val preferredGenres = userPrefs.preferredGenreIds.first()
+        val quality = userPrefs.feedQuality.first()
         return tmdbApi.trendingWeek().results
             .filter { it.mediaType == "movie" || it.mediaType == "tv" }
             .map { it.toSummary() }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
+            .filterQuality(quality)
     }
 
     /**
@@ -100,9 +104,11 @@ class MediaRepository @Inject constructor(
         val since = DateUtils.isoDaysAgo(windowDays)
         val blocked = userPrefs.blockedCountries.first()
         val preferredGenres = userPrefs.preferredGenreIds.first()
+        val quality = userPrefs.feedQuality.first()
+        val minRuntime = if (quality.hideShortFilms) SHORT_FILM_MAX_MINUTES else null
         val movies = coroutineScope {
             (1..pagesPerType).map { page ->
-                async { tmdbApi.discoverMovieReleased(lte = today, gte = since, page = page).results }
+                async { tmdbApi.discoverMovieReleased(lte = today, gte = since, minRuntime = minRuntime, page = page).results }
             }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.MOVIE) }
         val tv = coroutineScope {
@@ -116,6 +122,7 @@ class MediaRepository @Inject constructor(
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
+            .filterQuality(quality)
         val rated = enrichWithOmdbRatings(combined.take(ratingsCap))
         val result = rated + combined.drop(ratingsCap)
         cachedRecentlyReleased = now to result
@@ -139,11 +146,21 @@ class MediaRepository @Inject constructor(
         val today = DateUtils.todayIso()
         val blocked = userPrefs.blockedCountries.first()
         val preferredGenres = userPrefs.preferredGenreIds.first()
+        val quality = userPrefs.feedQuality.first()
+        // Date-sorted pages are dominated by obscure entries; ranking a 12-month window by
+        // popularity keeps the titles people actually anticipate. The UI re-sorts by date.
+        val until = if (quality.popularUpcomingOnly) DateUtils.isoDaysAhead(365) else null
+        val movieSort = if (quality.popularUpcomingOnly) "popularity.desc" else "primary_release_date.asc"
+        val tvSort = if (quality.popularUpcomingOnly) "popularity.desc" else "first_air_date.asc"
         val movies = coroutineScope {
-            (1..pages).map { page -> async { tmdbApi.discoverMovieUpcoming(gte = today, page = page).results } }.awaitAll()
+            (1..pages).map { page ->
+                async { tmdbApi.discoverMovieUpcoming(sortBy = movieSort, gte = today, lte = until, page = page).results }
+            }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.MOVIE) }
         val tv = coroutineScope {
-            (1..pages).map { page -> async { tmdbApi.discoverTvUpcoming(gte = today, page = page).results } }.awaitAll()
+            (1..pages).map { page ->
+                async { tmdbApi.discoverTvUpcoming(sortBy = tvSort, gte = today, lte = until, page = page).results }
+            }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.TV) }
         val result = (movies + tv)
             .distinctBy { it.mediaType to it.tmdbId }
@@ -151,6 +168,7 @@ class MediaRepository @Inject constructor(
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
+            .filterQuality(quality)
         cachedUpcoming = now to result
         return result
     }
@@ -159,6 +177,12 @@ class MediaRepository @Inject constructor(
     private fun List<MediaSummary>.filterByPreferredGenres(preferred: Set<Int>): List<MediaSummary> {
         if (preferred.isEmpty()) return this
         return filter { item -> item.genreIds.any { it in preferred } }
+    }
+
+    /** Hidden genres win over preferred ones: a comedy talk show is still a talk show. */
+    private fun List<MediaSummary>.filterQuality(quality: FeedQuality): List<MediaSummary> = filter { item ->
+        val hasArtwork = item.posterPath != null && item.backdropPath != null
+        (!quality.hideNoArtwork || hasArtwork) && item.genreIds.none { it in quality.hiddenGenreIds }
     }
 
     private fun List<MediaSummary>.filterNotBlocked(blocked: Set<String>): List<MediaSummary> {
@@ -263,6 +287,7 @@ class MediaRepository @Inject constructor(
                 .filter { it.posterPath != null }
                 .map { it.toSummary(if (it.mediaType == "tv" || it.mediaType == "movie") null else mediaType) }
                 .distinctBy { it.mediaType to it.tmdbId }
+                .filterQuality(userPrefs.feedQuality.first())
                 .take(12)
         )
     }
@@ -359,13 +384,47 @@ class MediaRepository @Inject constructor(
         )
     }
 
-    /** Keeps the stored next-season date current when a followed series is opened. Never notifies. */
-    suspend fun refreshSeasonInfo(detail: MediaDetail) {
+    /**
+     * Copies fresh detail data onto a saved entry: genres, runtime and scores (quick adds start
+     * without them) and, for followed series, the next season. Never notifies.
+     */
+    suspend fun refreshSavedEntry(detail: MediaDetail) {
         val existing = watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) ?: return
-        if (!existing.followSeasons || detail.nextSeasonNumber == null) return
-        watchlistDao.update(
-            existing.copy(nextSeasonNumber = detail.nextSeasonNumber, nextSeasonAirDate = detail.nextSeasonAirDate)
+        var updated = existing.copy(
+            genres = detail.genres.joinToString(",").ifBlank { existing.genres },
+            runtimeMinutes = detail.runtimeMinutes ?: existing.runtimeMinutes,
+            imdbId = detail.imdbId ?: existing.imdbId,
+            imdbRating = detail.imdbRating ?: existing.imdbRating,
+            rottenTomatoesScore = detail.rottenTomatoesScore ?: existing.rottenTomatoesScore
         )
+        if (existing.followSeasons && detail.nextSeasonNumber != null) {
+            updated = updated.copy(nextSeasonNumber = detail.nextSeasonNumber, nextSeasonAirDate = detail.nextSeasonAirDate)
+        }
+        if (updated != existing) watchlistDao.update(updated)
+    }
+
+    /**
+     * Fills in genres (and movie runtimes) for entries saved before quick adds carried them,
+     * a few requests at a time. Series often have no episode runtime on TMDB, so a missing
+     * tv runtime alone doesn't trigger a fetch.
+     */
+    suspend fun backfillWatchlistMetadata() {
+        val missing = watchlistDao.observeAll().first().filter {
+            it.genres.isBlank() || (it.mediaType == MediaType.MOVIE.apiValue && it.runtimeMinutes == null)
+        }
+        missing.chunked(4).forEach { chunk ->
+            val details = coroutineScope {
+                chunk.map { item ->
+                    async { runCatching { getDetail(item.tmdbId, MediaType.from(item.mediaType)) }.getOrNull() }
+                }.awaitAll()
+            }
+            details.filterNotNull().forEach { refreshSavedEntry(it) }
+        }
+    }
+
+    /** The For You pool: released titles on the list that haven't been watched yet. */
+    fun observeSuggestionPool(): Flow<List<WatchlistEntity>> = watchlistDao.observeAll().map { list ->
+        list.filter { !it.watched && DateUtils.releaseStatus(it.releaseDate) == ReleaseStatus.RELEASED }
     }
 
     suspend fun setWatched(item: WatchlistEntity, watched: Boolean) =
@@ -415,12 +474,10 @@ class MediaRepository @Inject constructor(
         var filtered = all
         if (type != null) filtered = filtered.filter { it.mediaType == type.apiValue }
         if (genres != null) {
-            filtered = filtered.filter { item ->
-                item.genres.split(",").map { it.trim() }.any { it in genres }
-            }
+            filtered = filtered.filter { item -> item.genreList().any { it.matchesAnyGenre(genres) } }
         }
         if (length != LengthPref.ANY) {
-            val byLength = filtered.filter { item -> item.runtimeMinutes?.let { length.matches(it) } == true }
+            val byLength = filtered.filter { item -> item.effectiveRuntime()?.let { length.matches(it) } == true }
             if (byLength.isNotEmpty()) filtered = byLength
         }
         if (filtered.isEmpty()) filtered = all
@@ -434,7 +491,7 @@ class MediaRepository @Inject constructor(
         if (existing != null) {
             removeWithUndo(existing)
         } else {
-            val added = summary.toWatchlistEntity()
+            val added = summary.toWatchlistEntity(genreNames = genreNames())
             watchlistDao.upsert(added)
             messages.post(
                 UserMessage(
@@ -463,7 +520,7 @@ class MediaRepository @Inject constructor(
         if (existing != null) {
             watchlistDao.update(existing.copy(notifyOnRelease = !existing.notifyOnRelease))
         } else {
-            watchlistDao.upsert(summary.toWatchlistEntity(notifyOnRelease = true))
+            watchlistDao.upsert(summary.toWatchlistEntity(notifyOnRelease = true, genreNames = genreNames()))
         }
     }
 }
@@ -488,6 +545,18 @@ data class ReleaseAlerts(
             }
 }
 
+/** TMDB often lists no episode length for series; assume a typical ~45 min hour-long episode. */
+private const val DEFAULT_EPISODE_MINUTES = 45
+
+private fun WatchlistEntity.effectiveRuntime(): Int? =
+    runtimeMinutes ?: if (mediaType == MediaType.TV.apiValue) DEFAULT_EPISODE_MINUTES else null
+
+fun WatchlistEntity.genreList(): List<String> = genres.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
+/** TV genres are compound ("Action & Adventure", "Sci-Fi & Fantasy"), so "Action" should match them. */
+private fun String.matchesAnyGenre(wanted: Collection<String>): Boolean =
+    wanted.any { w -> this == w || split(" & ").any { part -> part == w } || (w.contains(" & ") && w.split(" & ").any { it == this }) }
+
 enum class SuggestionMood(val genres: List<String>?) {
     ANYTHING(null),
     LIGHT(listOf("Comedy", "Fantasy", "Family", "Animation")),
@@ -509,7 +578,10 @@ enum class LengthPref(val label: String) {
     }
 }
 
-private fun MediaSummary.toWatchlistEntity(notifyOnRelease: Boolean = false) = WatchlistEntity(
+private fun MediaSummary.toWatchlistEntity(
+    notifyOnRelease: Boolean = false,
+    genreNames: Map<Int, String> = emptyMap()
+) = WatchlistEntity(
     tmdbId = tmdbId,
     mediaType = mediaType.apiValue,
     title = title,
@@ -519,7 +591,8 @@ private fun MediaSummary.toWatchlistEntity(notifyOnRelease: Boolean = false) = W
     imdbId = null,
     imdbRating = null,
     rottenTomatoesScore = null,
-    genres = "",
+    // List results carry genre ids only; names are what the For You quiz filters on.
+    genres = genreIds.mapNotNull { genreNames[it] }.distinct().joinToString(","),
     addedAtEpochMillis = System.currentTimeMillis(),
     notifyOnRelease = notifyOnRelease && DateUtils.releaseStatus(releaseDate) == ReleaseStatus.UPCOMING,
     lastKnownReleaseStatus = DateUtils.releaseStatus(releaseDate).name
@@ -535,7 +608,8 @@ fun TmdbMultiResult.toSummary(forcedType: MediaType? = null): MediaSummary = Med
     tmdbVoteAverage = voteAverage ?: 0.0,
     originCountries = originCountry.orEmpty(),
     originalLanguage = originalLanguage,
-    genreIds = genreIds.orEmpty()
+    genreIds = genreIds.orEmpty(),
+    backdropPath = backdropPath
 )
 
 fun imageUrl(path: String?, size: String = "w500"): String? =

@@ -3,6 +3,7 @@ package com.georgearn.showtracker.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.georgearn.showtracker.data.local.ContentRefreshBus
+import com.georgearn.showtracker.data.local.FeedQuality
 import com.georgearn.showtracker.data.local.ThemeMode
 import com.georgearn.showtracker.data.local.UserPrefs
 import com.georgearn.showtracker.data.repository.MediaRepository
@@ -41,6 +42,9 @@ class SettingsViewModel @Inject constructor(
     val preferredGenreIds: StateFlow<Set<Int>> = userPrefs.preferredGenreIds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    val feedQuality: StateFlow<FeedQuality> = userPrefs.feedQuality
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FeedQuality())
+
     private val _genreOptions = MutableStateFlow<List<GenreToggleOption>>(emptyList())
     val genreOptions: StateFlow<List<GenreToggleOption>> = _genreOptions
 
@@ -71,6 +75,11 @@ class SettingsViewModel @Inject constructor(
         _pendingRefresh.value = false
     }
 
+    // Leaving Settings applies any filter change the user didn't refresh by hand.
+    override fun onCleared() {
+        if (_pendingRefresh.value) refreshBus.notifyChangedNow()
+    }
+
     fun setUpcomingPagesPerType(pages: Int) = viewModelScope.launch {
         userPrefs.setUpcomingPagesPerType(pages)
         _pendingRefresh.value = true
@@ -80,6 +89,28 @@ class SettingsViewModel @Inject constructor(
         val current = preferredGenreIds.value
         val next = if (current.containsAll(option.ids)) current - option.ids else current + option.ids
         userPrefs.setPreferredGenreIds(next)
+        _pendingRefresh.value = true
+    }
+
+    fun setHideNoArtwork(enabled: Boolean) = viewModelScope.launch {
+        userPrefs.setHideNoArtwork(enabled)
+        _pendingRefresh.value = true
+    }
+
+    fun setHideShortFilms(enabled: Boolean) = viewModelScope.launch {
+        userPrefs.setHideShortFilms(enabled)
+        _pendingRefresh.value = true
+    }
+
+    fun setPopularUpcomingOnly(enabled: Boolean) = viewModelScope.launch {
+        userPrefs.setPopularUpcomingOnly(enabled)
+        _pendingRefresh.value = true
+    }
+
+    fun toggleHiddenGenre(option: GenreToggleOption) = viewModelScope.launch {
+        val current = feedQuality.value.hiddenGenreIds
+        val next = if (current.containsAll(option.ids)) current - option.ids else current + option.ids
+        userPrefs.setHiddenGenreIds(next)
         _pendingRefresh.value = true
     }
 

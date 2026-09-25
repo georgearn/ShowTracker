@@ -71,6 +71,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val preferredGenreIds by viewModel.preferredGenreIds.collectAsStateWithLifecycle()
     val genreOptions by viewModel.genreOptions.collectAsStateWithLifecycle()
     val pendingRefresh by viewModel.pendingRefresh.collectAsStateWithLifecycle()
+    val feedQuality by viewModel.feedQuality.collectAsStateWithLifecycle()
     var countrySearch by remember { mutableStateOf("") }
     var expandedContinents by remember { mutableStateOf(setOf<String>()) }
 
@@ -193,11 +194,58 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                         }
                     }
 
+                    SettingsSection(title = "Feed quality", modifier = Modifier.padding(top = 20.dp)) {
+                        Text(
+                            "Applies to Home, Just Dropped, Releasing Soon, trending and \"More like this\". Search always shows everything.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp)
+                        )
+                        QualitySwitch(
+                            title = "Hide titles without artwork",
+                            body = "No poster or no backdrop on TMDB usually means a placeholder entry.",
+                            checked = feedQuality.hideNoArtwork,
+                            onCheckedChange = viewModel::setHideNoArtwork
+                        )
+                        QualitySwitch(
+                            title = "Hide short films",
+                            body = "Drops movies under 40 minutes from Just Dropped.",
+                            checked = feedQuality.hideShortFilms,
+                            onCheckedChange = viewModel::setHideShortFilms
+                        )
+                        QualitySwitch(
+                            title = "Popular upcoming titles only",
+                            body = "Ranks the next 12 months by popularity instead of taking the next dates in order.",
+                            checked = feedQuality.popularUpcomingOnly,
+                            onCheckedChange = viewModel::setPopularUpcomingOnly
+                        )
+                        HorizontalDivider()
+                        Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            Text("Always hide these genres", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                "Wins over preferred genres, so a comedy talk show stays hidden.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            SettingsWrapChips(
+                                modifier = Modifier.padding(top = 8.dp),
+                                items = genreOptions,
+                                isSelected = { feedQuality.hiddenGenreIds.containsAll(it.ids) },
+                                label = { it.label },
+                                onClick = viewModel::toggleHiddenGenre
+                            )
+                        }
+                    }
+
                     SettingsSection(title = "Releasing Soon lookahead", modifier = Modifier.padding(top = 20.dp)) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text(
                                 "How many pages of upcoming titles to fetch per type (movies/series), ~20 titles per page. " +
-                                    "Higher values surface releases further in the future but take a bit longer to load.",
+                                    if (feedQuality.popularUpcomingOnly) {
+                                        "Higher values add less popular titles from the next 12 months but take a bit longer to load."
+                                    } else {
+                                        "Higher values surface releases further in the future but take a bit longer to load."
+                                    },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -324,6 +372,16 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
             }
         }
     }
+}
+
+@Composable
+private fun QualitySwitch(title: String, body: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(body) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+    )
 }
 
 @Composable

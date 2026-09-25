@@ -6,10 +6,13 @@ import com.georgearn.showtracker.data.local.WatchlistEntity
 import com.georgearn.showtracker.data.model.MediaType
 import com.georgearn.showtracker.data.repository.LengthPref
 import com.georgearn.showtracker.data.repository.MediaRepository
+import com.georgearn.showtracker.data.repository.genreList
 import com.georgearn.showtracker.data.repository.SuggestionMood
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -45,11 +48,32 @@ class ForYouViewModel @Inject constructor(
     private val _state = MutableStateFlow(ForYouState())
     val state: StateFlow<ForYouState> = _state
 
+    private var pool: List<WatchlistEntity> = emptyList()
+
     init {
-        viewModelScope.launch {
-            val names = repository.genreNames().values.distinct().sorted()
-            _state.value = _state.value.copy(genreOptions = names)
-        }
+        // Quick adds made before genres were stored have none - fetch them once in the background.
+        viewModelScope.launch { runCatching { repository.backfillWatchlistMetadata() } }
+        repository.observeSuggestionPool()
+            .onEach { released ->
+                pool = released
+                refreshGenreOptions()
+            }
+            .launchIn(viewModelScope)
+    }
+
+    /**
+     * Genre chips come from what's actually pickable: released, unwatched titles on the list,
+     * narrowed to the chosen type. Picks that no longer exist in the pool are dropped.
+     */
+    private fun refreshGenreOptions() {
+        val s = _state.value
+        val type = s.quizType.mediaType
+        val options = pool
+            .filter { type == null || it.mediaType == type.apiValue }
+            .flatMap { it.genreList() }
+            .distinct()
+            .sorted()
+        _state.value = s.copy(genreOptions = options, selectedGenres = s.selectedGenres.intersect(options.toSet()))
     }
 
     fun startQuiz() {
@@ -80,6 +104,7 @@ class ForYouViewModel @Inject constructor(
 
     fun setQuizType(type: QuizType) {
         _state.value = _state.value.copy(quizType = type)
+        refreshGenreOptions()
     }
 
     fun setLength(length: LengthPref) {

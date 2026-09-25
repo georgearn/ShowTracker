@@ -261,7 +261,7 @@ private fun QuizStepStage(state: ForYouState, viewModel: ForYouViewModel) {
                     }
                     3 -> {
                         Text("Any specific genres in mind?", style = MaterialTheme.typography.titleMedium)
-                        Text("Select optional genres or leave unselected for all.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Genres of the released titles on your list. Pick any, or none for all.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp)

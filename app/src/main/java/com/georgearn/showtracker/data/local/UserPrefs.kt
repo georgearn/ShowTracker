@@ -16,6 +16,14 @@ private val Context.dataStore by preferencesDataStore(name = "show_tracker_prefs
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Filters that drop likely-junk titles from the passive feeds (never from explicit search). */
+data class FeedQuality(
+    val hideNoArtwork: Boolean = true,
+    val hideShortFilms: Boolean = true,
+    val popularUpcomingOnly: Boolean = true,
+    val hiddenGenreIds: Set<Int> = UserPrefs.DEFAULT_HIDDEN_GENRES
+)
+
 @Singleton
 class UserPrefs @Inject constructor(private val context: Context) {
 
@@ -28,17 +36,49 @@ class UserPrefs @Inject constructor(private val context: Context) {
         val HAS_ONBOARDED = booleanPreferencesKey("has_onboarded")
         val UPCOMING_PAGES = intPreferencesKey("upcoming_pages_per_type") // TMDB pages (20 results each) fetched per media type
         val SEEN_ALERTS = stringSetPreferencesKey("seen_alert_keys") // alert keys already shown on the Notifications screen
+        val HIDE_NO_ARTWORK = booleanPreferencesKey("hide_no_artwork")
+        val HIDE_SHORTS = booleanPreferencesKey("hide_short_films")
+        val POPULAR_UPCOMING = booleanPreferencesKey("popular_upcoming_only")
+        val HIDDEN_GENRES = stringSetPreferencesKey("hidden_genre_ids") // TMDB genre ids, as strings
     }
 
     companion object {
         const val DEFAULT_UPCOMING_PAGES = 3
         const val MAX_UPCOMING_PAGES = 15 // ~300 titles/type - generous without hammering TMDB's rate limit
+
+        /** TMDB tv genres News, Reality, Soap, Talk - the bulk of non-film, non-series noise. */
+        val DEFAULT_HIDDEN_GENRES = setOf(10763, 10764, 10766, 10767)
     }
 
     val upcomingPagesPerType: Flow<Int> = context.dataStore.data.map { it[Keys.UPCOMING_PAGES] ?: DEFAULT_UPCOMING_PAGES }
 
     suspend fun setUpcomingPagesPerType(pages: Int) {
         context.dataStore.edit { it[Keys.UPCOMING_PAGES] = pages.coerceIn(1, MAX_UPCOMING_PAGES) }
+    }
+
+    val feedQuality: Flow<FeedQuality> = context.dataStore.data.map { prefs ->
+        FeedQuality(
+            hideNoArtwork = prefs[Keys.HIDE_NO_ARTWORK] ?: true,
+            hideShortFilms = prefs[Keys.HIDE_SHORTS] ?: true,
+            popularUpcomingOnly = prefs[Keys.POPULAR_UPCOMING] ?: true,
+            hiddenGenreIds = prefs[Keys.HIDDEN_GENRES]?.mapNotNull { it.toIntOrNull() }?.toSet() ?: DEFAULT_HIDDEN_GENRES
+        )
+    }
+
+    suspend fun setHideNoArtwork(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.HIDE_NO_ARTWORK] = enabled }
+    }
+
+    suspend fun setHideShortFilms(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.HIDE_SHORTS] = enabled }
+    }
+
+    suspend fun setPopularUpcomingOnly(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.POPULAR_UPCOMING] = enabled }
+    }
+
+    suspend fun setHiddenGenreIds(ids: Set<Int>) {
+        context.dataStore.edit { it[Keys.HIDDEN_GENRES] = ids.map { id -> id.toString() }.toSet() }
     }
 
     val seenAlertKeys: Flow<Set<String>> = context.dataStore.data.map { it[Keys.SEEN_ALERTS] ?: emptySet() }
