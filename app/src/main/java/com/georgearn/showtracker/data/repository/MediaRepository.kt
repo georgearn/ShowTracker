@@ -477,7 +477,7 @@ class MediaRepository @Inject constructor(
             filtered = filtered.filter { item -> item.genreList().any { it.matchesAnyGenre(genres) } }
         }
         if (length != LengthPref.ANY) {
-            val byLength = filtered.filter { item -> item.runtimeMinutes?.let { length.matches(it) } == true }
+            val byLength = filtered.filter { item -> item.effectiveRuntime()?.let { length.matches(it) } == true }
             if (byLength.isNotEmpty()) filtered = byLength
         }
         if (filtered.isEmpty()) filtered = all
@@ -544,6 +544,12 @@ data class ReleaseAlerts(
                 "season:${item.key}:${item.nextSeasonNumber}:$phase"
             }
 }
+
+/** TMDB often lists no episode length for series; assume a typical ~45 min hour-long episode. */
+private const val DEFAULT_EPISODE_MINUTES = 45
+
+private fun WatchlistEntity.effectiveRuntime(): Int? =
+    runtimeMinutes ?: if (mediaType == MediaType.TV.apiValue) DEFAULT_EPISODE_MINUTES else null
 
 fun WatchlistEntity.genreList(): List<String> = genres.split(",").map { it.trim() }.filter { it.isNotBlank() }
 
