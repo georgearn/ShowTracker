@@ -85,20 +85,3 @@ app/src/main/java/com/georgearn/showtracker/
 ```
 
 ---
-
-## Building & Signing
-
-To build a signed release APK for `arm64-v8a`:
-
-1. Ensure signing credentials are set in `local.properties` (or environment variables):
-   ```properties
-   RELEASE_KEYSTORE_PATH=C\:/Users/GeorgeArn/.android-keystores/android-release.jks
-   RELEASE_KEY_ALIAS=androidrelease
-   RELEASE_KEYSTORE_PASSWORD=your_password
-   RELEASE_KEY_PASSWORD=your_password
-   ```
-2. Run the release assemble task:
-   ```powershell
-   ./gradlew assembleRelease
-   ```
-3. Generated APK location: `app/build/outputs/apk/release/app-release.apk`.
