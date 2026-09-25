@@ -41,7 +41,7 @@ class DetailsViewModel @Inject constructor(
             _state.value = UiState.Loading
             _state.value = try {
                 val detail = repository.getDetail(tmdbId, mediaType)
-                repository.refreshSeasonInfo(detail)
+                repository.refreshSavedEntry(detail)
                 UiState.Success(detail)
             } catch (t: Throwable) {
                 UiState.Error(t.message ?: "Couldn't load details.")

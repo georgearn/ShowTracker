@@ -384,13 +384,47 @@ class MediaRepository @Inject constructor(
         )
     }
 
-    /** Keeps the stored next-season date current when a followed series is opened. Never notifies. */
-    suspend fun refreshSeasonInfo(detail: MediaDetail) {
+    /**
+     * Copies fresh detail data onto a saved entry: genres, runtime and scores (quick adds start
+     * without them) and, for followed series, the next season. Never notifies.
+     */
+    suspend fun refreshSavedEntry(detail: MediaDetail) {
         val existing = watchlistDao.getById(detail.tmdbId, detail.mediaType.apiValue) ?: return
-        if (!existing.followSeasons || detail.nextSeasonNumber == null) return
-        watchlistDao.update(
-            existing.copy(nextSeasonNumber = detail.nextSeasonNumber, nextSeasonAirDate = detail.nextSeasonAirDate)
+        var updated = existing.copy(
+            genres = detail.genres.joinToString(",").ifBlank { existing.genres },
+            runtimeMinutes = detail.runtimeMinutes ?: existing.runtimeMinutes,
+            imdbId = detail.imdbId ?: existing.imdbId,
+            imdbRating = detail.imdbRating ?: existing.imdbRating,
+            rottenTomatoesScore = detail.rottenTomatoesScore ?: existing.rottenTomatoesScore
         )
+        if (existing.followSeasons && detail.nextSeasonNumber != null) {
+            updated = updated.copy(nextSeasonNumber = detail.nextSeasonNumber, nextSeasonAirDate = detail.nextSeasonAirDate)
+        }
+        if (updated != existing) watchlistDao.update(updated)
+    }
+
+    /**
+     * Fills in genres (and movie runtimes) for entries saved before quick adds carried them,
+     * a few requests at a time. Series often have no episode runtime on TMDB, so a missing
+     * tv runtime alone doesn't trigger a fetch.
+     */
+    suspend fun backfillWatchlistMetadata() {
+        val missing = watchlistDao.observeAll().first().filter {
+            it.genres.isBlank() || (it.mediaType == MediaType.MOVIE.apiValue && it.runtimeMinutes == null)
+        }
+        missing.chunked(4).forEach { chunk ->
+            val details = coroutineScope {
+                chunk.map { item ->
+                    async { runCatching { getDetail(item.tmdbId, MediaType.from(item.mediaType)) }.getOrNull() }
+                }.awaitAll()
+            }
+            details.filterNotNull().forEach { refreshSavedEntry(it) }
+        }
+    }
+
+    /** The For You pool: released titles on the list that haven't been watched yet. */
+    fun observeSuggestionPool(): Flow<List<WatchlistEntity>> = watchlistDao.observeAll().map { list ->
+        list.filter { !it.watched && DateUtils.releaseStatus(it.releaseDate) == ReleaseStatus.RELEASED }
     }
 
     suspend fun setWatched(item: WatchlistEntity, watched: Boolean) =
@@ -440,9 +474,7 @@ class MediaRepository @Inject constructor(
         var filtered = all
         if (type != null) filtered = filtered.filter { it.mediaType == type.apiValue }
         if (genres != null) {
-            filtered = filtered.filter { item ->
-                item.genres.split(",").map { it.trim() }.any { it in genres }
-            }
+            filtered = filtered.filter { item -> item.genreList().any { it.matchesAnyGenre(genres) } }
         }
         if (length != LengthPref.ANY) {
             val byLength = filtered.filter { item -> item.runtimeMinutes?.let { length.matches(it) } == true }
@@ -459,7 +491,7 @@ class MediaRepository @Inject constructor(
         if (existing != null) {
             removeWithUndo(existing)
         } else {
-            val added = summary.toWatchlistEntity()
+            val added = summary.toWatchlistEntity(genreNames = genreNames())
             watchlistDao.upsert(added)
             messages.post(
                 UserMessage(
@@ -488,7 +520,7 @@ class MediaRepository @Inject constructor(
         if (existing != null) {
             watchlistDao.update(existing.copy(notifyOnRelease = !existing.notifyOnRelease))
         } else {
-            watchlistDao.upsert(summary.toWatchlistEntity(notifyOnRelease = true))
+            watchlistDao.upsert(summary.toWatchlistEntity(notifyOnRelease = true, genreNames = genreNames()))
         }
     }
 }
@@ -513,6 +545,12 @@ data class ReleaseAlerts(
             }
 }
 
+fun WatchlistEntity.genreList(): List<String> = genres.split(",").map { it.trim() }.filter { it.isNotBlank() }
+
+/** TV genres are compound ("Action & Adventure", "Sci-Fi & Fantasy"), so "Action" should match them. */
+private fun String.matchesAnyGenre(wanted: Collection<String>): Boolean =
+    wanted.any { w -> this == w || split(" & ").any { part -> part == w } || (w.contains(" & ") && w.split(" & ").any { it == this }) }
+
 enum class SuggestionMood(val genres: List<String>?) {
     ANYTHING(null),
     LIGHT(listOf("Comedy", "Fantasy", "Family", "Animation")),
@@ -534,7 +572,10 @@ enum class LengthPref(val label: String) {
     }
 }
 
-private fun MediaSummary.toWatchlistEntity(notifyOnRelease: Boolean = false) = WatchlistEntity(
+private fun MediaSummary.toWatchlistEntity(
+    notifyOnRelease: Boolean = false,
+    genreNames: Map<Int, String> = emptyMap()
+) = WatchlistEntity(
     tmdbId = tmdbId,
     mediaType = mediaType.apiValue,
     title = title,
@@ -544,7 +585,8 @@ private fun MediaSummary.toWatchlistEntity(notifyOnRelease: Boolean = false) = W
     imdbId = null,
     imdbRating = null,
     rottenTomatoesScore = null,
-    genres = "",
+    // List results carry genre ids only; names are what the For You quiz filters on.
+    genres = genreIds.mapNotNull { genreNames[it] }.distinct().joinToString(","),
     addedAtEpochMillis = System.currentTimeMillis(),
     notifyOnRelease = notifyOnRelease && DateUtils.releaseStatus(releaseDate) == ReleaseStatus.UPCOMING,
     lastKnownReleaseStatus = DateUtils.releaseStatus(releaseDate).name
