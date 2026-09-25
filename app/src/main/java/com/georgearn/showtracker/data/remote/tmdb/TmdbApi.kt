@@ -26,6 +26,7 @@ interface TmdbApi {
         @Query("primary_release_date.lte") lte: String,
         @Query("primary_release_date.gte") gte: String? = null,
         @Query("vote_count.gte") minVotes: Int = 5,
+        @Query("with_runtime.gte") minRuntime: Int? = null,
         @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse
@@ -45,6 +46,7 @@ interface TmdbApi {
     suspend fun discoverMovieUpcoming(
         @Query("sort_by") sortBy: String = "primary_release_date.asc",
         @Query("primary_release_date.gte") gte: String,
+        @Query("primary_release_date.lte") lte: String? = null,
         @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse
@@ -53,6 +55,7 @@ interface TmdbApi {
     suspend fun discoverTvUpcoming(
         @Query("sort_by") sortBy: String = "first_air_date.asc",
         @Query("first_air_date.gte") gte: String,
+        @Query("first_air_date.lte") lte: String? = null,
         @Query("language") language: String = "en-US",
         @Query("page") page: Int = 1
     ): TmdbDiscoverResponse

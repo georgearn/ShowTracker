@@ -2,6 +2,7 @@ package com.georgearn.showtracker.data.repository
 
 import com.georgearn.showtracker.BuildConfig
 import com.georgearn.showtracker.data.local.Countries
+import com.georgearn.showtracker.data.local.FeedQuality
 import com.georgearn.showtracker.data.local.UserPrefs
 import com.georgearn.showtracker.data.local.WatchlistDao
 import com.georgearn.showtracker.data.local.WatchlistEntity
@@ -44,6 +45,7 @@ class MediaRepository @Inject constructor(
     private var cachedRecentlyReleased: Pair<Long, List<MediaSummary>>? = null
     private var cachedUpcoming: Pair<Long, List<MediaSummary>>? = null
     private val CACHE_DURATION_MS = 3 * 24 * 60 * 60 * 1000L // 3 days
+    private val SHORT_FILM_MAX_MINUTES = 40 // Academy cut-off for a short film
 
     /** id -> name for both movie and tv genres, fetched once and cached for the process lifetime. */
     suspend fun genreNames(): Map<Int, String> {
@@ -71,12 +73,14 @@ class MediaRepository @Inject constructor(
     suspend fun trending(): List<MediaSummary> {
         val blocked = userPrefs.blockedCountries.first()
         val preferredGenres = userPrefs.preferredGenreIds.first()
+        val quality = userPrefs.feedQuality.first()
         return tmdbApi.trendingWeek().results
             .filter { it.mediaType == "movie" || it.mediaType == "tv" }
             .map { it.toSummary() }
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
+            .filterQuality(quality)
     }
 
     /**
@@ -100,9 +104,11 @@ class MediaRepository @Inject constructor(
         val since = DateUtils.isoDaysAgo(windowDays)
         val blocked = userPrefs.blockedCountries.first()
         val preferredGenres = userPrefs.preferredGenreIds.first()
+        val quality = userPrefs.feedQuality.first()
+        val minRuntime = if (quality.hideShortFilms) SHORT_FILM_MAX_MINUTES else null
         val movies = coroutineScope {
             (1..pagesPerType).map { page ->
-                async { tmdbApi.discoverMovieReleased(lte = today, gte = since, page = page).results }
+                async { tmdbApi.discoverMovieReleased(lte = today, gte = since, minRuntime = minRuntime, page = page).results }
             }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.MOVIE) }
         val tv = coroutineScope {
@@ -116,6 +122,7 @@ class MediaRepository @Inject constructor(
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
+            .filterQuality(quality)
         val rated = enrichWithOmdbRatings(combined.take(ratingsCap))
         val result = rated + combined.drop(ratingsCap)
         cachedRecentlyReleased = now to result
@@ -139,11 +146,21 @@ class MediaRepository @Inject constructor(
         val today = DateUtils.todayIso()
         val blocked = userPrefs.blockedCountries.first()
         val preferredGenres = userPrefs.preferredGenreIds.first()
+        val quality = userPrefs.feedQuality.first()
+        // Date-sorted pages are dominated by obscure entries; ranking a 12-month window by
+        // popularity keeps the titles people actually anticipate. The UI re-sorts by date.
+        val until = if (quality.popularUpcomingOnly) DateUtils.isoDaysAhead(365) else null
+        val movieSort = if (quality.popularUpcomingOnly) "popularity.desc" else "primary_release_date.asc"
+        val tvSort = if (quality.popularUpcomingOnly) "popularity.desc" else "first_air_date.asc"
         val movies = coroutineScope {
-            (1..pages).map { page -> async { tmdbApi.discoverMovieUpcoming(gte = today, page = page).results } }.awaitAll()
+            (1..pages).map { page ->
+                async { tmdbApi.discoverMovieUpcoming(sortBy = movieSort, gte = today, lte = until, page = page).results }
+            }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.MOVIE) }
         val tv = coroutineScope {
-            (1..pages).map { page -> async { tmdbApi.discoverTvUpcoming(gte = today, page = page).results } }.awaitAll()
+            (1..pages).map { page ->
+                async { tmdbApi.discoverTvUpcoming(sortBy = tvSort, gte = today, lte = until, page = page).results }
+            }.awaitAll()
         }.flatten().map { it.toSummary(MediaType.TV) }
         val result = (movies + tv)
             .distinctBy { it.mediaType to it.tmdbId }
@@ -151,6 +168,7 @@ class MediaRepository @Inject constructor(
             .filterNotBlocked(blocked)
             .filter { hasReadableTitle(it.title) }
             .filterByPreferredGenres(preferredGenres)
+            .filterQuality(quality)
         cachedUpcoming = now to result
         return result
     }
@@ -159,6 +177,12 @@ class MediaRepository @Inject constructor(
     private fun List<MediaSummary>.filterByPreferredGenres(preferred: Set<Int>): List<MediaSummary> {
         if (preferred.isEmpty()) return this
         return filter { item -> item.genreIds.any { it in preferred } }
+    }
+
+    /** Hidden genres win over preferred ones: a comedy talk show is still a talk show. */
+    private fun List<MediaSummary>.filterQuality(quality: FeedQuality): List<MediaSummary> = filter { item ->
+        val hasArtwork = item.posterPath != null && item.backdropPath != null
+        (!quality.hideNoArtwork || hasArtwork) && item.genreIds.none { it in quality.hiddenGenreIds }
     }
 
     private fun List<MediaSummary>.filterNotBlocked(blocked: Set<String>): List<MediaSummary> {
@@ -263,6 +287,7 @@ class MediaRepository @Inject constructor(
                 .filter { it.posterPath != null }
                 .map { it.toSummary(if (it.mediaType == "tv" || it.mediaType == "movie") null else mediaType) }
                 .distinctBy { it.mediaType to it.tmdbId }
+                .filterQuality(userPrefs.feedQuality.first())
                 .take(12)
         )
     }
@@ -535,7 +560,8 @@ fun TmdbMultiResult.toSummary(forcedType: MediaType? = null): MediaSummary = Med
     tmdbVoteAverage = voteAverage ?: 0.0,
     originCountries = originCountry.orEmpty(),
     originalLanguage = originalLanguage,
-    genreIds = genreIds.orEmpty()
+    genreIds = genreIds.orEmpty(),
+    backdropPath = backdropPath
 )
 
 fun imageUrl(path: String?, size: String = "w500"): String? =
