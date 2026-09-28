@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.data.repository
 
+import com.georgearn.showtracker.data.local.mediaKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -361,6 +362,15 @@ class MediaRepository @Inject constructor(
 
     val hasUnseenAlerts: Flow<Boolean> = combine(observeReleaseAlerts(), userPrefs.seenAlertKeys) { alerts, seen ->
         (alerts.badgeKeys - seen).isNotEmpty()
+    }
+
+    /** Clears the badge for one title only (opened from its phone notification); other alerts keep theirs. */
+    suspend fun markAlertSeen(tmdbId: Int, mediaType: String) {
+        val key = mediaKey(mediaType, tmdbId)
+        val forTitle = observeReleaseAlerts().first().badgeKeys
+            .filter { it.substringAfter(':').let { rest -> rest == key || rest.startsWith("$key:") } }
+        if (forTitle.isEmpty()) return
+        userPrefs.setSeenAlertKeys(userPrefs.seenAlertKeys.first() + forTitle)
     }
 
     suspend fun markAlertsSeen() {

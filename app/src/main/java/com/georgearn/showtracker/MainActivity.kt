@@ -1,5 +1,9 @@
 package com.georgearn.showtracker
 
+import androidx.lifecycle.lifecycleScope
+import com.georgearn.showtracker.data.repository.MediaRepository
+import javax.inject.Inject
+import kotlinx.coroutines.launch
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -25,6 +29,8 @@ class MainActivity : ComponentActivity() {
 
     private val settingsViewModel: SettingsViewModel by viewModels()
     private var deepLinkState by mutableStateOf<DeepLinkTarget?>(null)
+
+    @Inject lateinit var repository: MediaRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +62,9 @@ class MainActivity : ComponentActivity() {
     private fun deepLinkFromIntent(intent: Intent?): DeepLinkTarget? {
         val tmdbId = intent?.getIntExtra(NotificationHelper.EXTRA_TMDB_ID, -1) ?: -1
         val mediaType = intent?.getStringExtra(NotificationHelper.EXTRA_MEDIA_TYPE)
-        return if (tmdbId != -1 && mediaType != null) DeepLinkTarget(tmdbId, mediaType) else null
+        if (tmdbId == -1 || mediaType == null) return null
+        // The user has now seen this title's alert, so its bell badge shouldn't linger.
+        lifecycleScope.launch { repository.markAlertSeen(tmdbId, mediaType) }
+        return DeepLinkTarget(tmdbId, mediaType)
     }
 }
