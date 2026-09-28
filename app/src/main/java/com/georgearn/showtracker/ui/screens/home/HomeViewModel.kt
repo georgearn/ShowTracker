@@ -3,8 +3,8 @@ package com.georgearn.showtracker.ui.screens.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.georgearn.showtracker.data.local.ContentRefreshBus
-import com.georgearn.showtracker.data.local.key
 import com.georgearn.showtracker.data.model.MediaSummary
+import com.georgearn.showtracker.data.model.MediaType
 import com.georgearn.showtracker.data.repository.MediaRepository
 import com.georgearn.showtracker.ui.screens.common.UserMessage
 import com.georgearn.showtracker.ui.screens.common.UserMessageBus
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -36,6 +37,19 @@ data class HomeUiState(
     val hasContent: Boolean get() = upcoming.isNotEmpty() || justDropped.isNotEmpty()
 }
 
+enum class TypeFilter(val label: String, val type: MediaType?) {
+    ALL("All", null),
+    MOVIES("Movies", MediaType.MOVIE),
+    SERIES("Series", MediaType.TV)
+}
+
+/** Movies/Series is per tab; genre applies to both tabs. */
+data class HomeFilters(
+    val newReleasesType: TypeFilter = TypeFilter.ALL,
+    val upcomingType: TypeFilter = TypeFilter.ALL,
+    val genreId: Int? = null
+)
+
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val repository: MediaRepository,
@@ -46,16 +60,42 @@ class HomeViewModel @Inject constructor(
     private val _state = MutableStateFlow(HomeUiState())
     val state: StateFlow<HomeUiState> = _state.asStateFlow()
 
-    val savedKeys: StateFlow<Set<String>> = repository.observeWatchlist()
-        .map { list -> list.map { it.key }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+    val savedKeys: StateFlow<Set<String>> = repository.savedKeys
 
-    val notifyKeys: StateFlow<Set<String>> = repository.observeWatchlist()
-        .map { list -> list.filter { it.notifyOnRelease }.map { it.key }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+    val notifyKeys: StateFlow<Set<String>> = repository.notifyKeys
 
     val hasUnseenAlerts: StateFlow<Boolean> = repository.hasUnseenAlerts
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    private val _filters = MutableStateFlow(HomeFilters())
+    val filters: StateFlow<HomeFilters> = _filters.asStateFlow()
+
+    private val genreNames = MutableStateFlow<Map<Int, String>>(emptyMap())
+
+    /** Genres present in either feed, sorted by name - only these are worth offering. */
+    val availableGenres: StateFlow<List<Pair<Int, String>>> = combine(_state, genreNames) { state, names ->
+        (state.justDropped + state.upcoming).flatMap { it.genreIds }.distinct()
+            .mapNotNull { id -> names[id]?.let { id to it } }
+            .sortedBy { it.second }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val visibleNewReleases: StateFlow<List<MediaSummary>> = combine(_state, _filters) { state, f ->
+        state.justDropped.applyFilters(f.newReleasesType, f.genreId)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val visibleUpcoming: StateFlow<List<MediaSummary>> = combine(_state, _filters) { state, f ->
+        state.upcoming.applyFilters(f.upcomingType, f.genreId)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private fun List<MediaSummary>.applyFilters(type: TypeFilter, genreId: Int?): List<MediaSummary> =
+        filter { (type.type == null || it.mediaType == type.type) && (genreId == null || genreId in it.genreIds) }
+
+    fun setNewReleasesType(filter: TypeFilter) = _filters.update { it.copy(newReleasesType = filter) }
+
+    fun setUpcomingType(filter: TypeFilter) = _filters.update { it.copy(upcomingType = filter) }
+
+    /** Tapping the selected genre again clears it. */
+    fun setGenre(genreId: Int?) = _filters.update { it.copy(genreId = if (it.genreId == genreId) null else genreId) }
 
     private var loadJob: Job? = null
 
@@ -79,8 +119,10 @@ class HomeViewModel @Inject constructor(
                 coroutineScope {
                     val upcoming = async { repository.upcoming(forceRefresh = forceRefresh) }
                     val dropped = async { repository.recentlyReleased(forceRefresh = forceRefresh) }
+                    val names = async { runCatching { repository.genreNames() }.getOrDefault(emptyMap()) }
                     val result = HomeUiState(upcoming = upcoming.await(), justDropped = dropped.await(), isLoading = false)
                     _state.value = result
+                    genreNames.value = names.await()
                 }
             } catch (e: CancellationException) {
                 throw e

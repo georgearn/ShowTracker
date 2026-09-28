@@ -1,5 +1,7 @@
 package com.georgearn.showtracker.work
 
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -28,10 +30,23 @@ class ReleaseCheckWorker @AssistedInject constructor(
 
     override suspend fun doWork(): Result {
         return try {
+            var networkFailed = false
+            // Far-off titles can't release before the next run; only date-unknown, past, or
+            // near-term items are worth a network call.
             val pending = watchlistDao.getPendingReleaseWatches()
+                .filter { (DateUtils.daysUntil(it.releaseDate) ?: 0) <= CHECK_WINDOW_DAYS }
             for (item in pending) {
                 val mediaType = MediaType.from(item.mediaType)
-                val detail = runCatching { repository.getDetail(item.tmdbId, mediaType, bypassCache = true) }.getOrNull() ?: continue
+                val detail = try {
+                    repository.getDetail(item.tmdbId, mediaType, bypassCache = true)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: IOException) {
+                    networkFailed = true
+                    continue
+                } catch (t: Throwable) {
+                    continue // bad data for this one title; don't block the rest
+                }
 
                 if (detail.releaseDate != item.releaseDate) {
                     watchlistDao.upsert(item.copy(releaseDate = detail.releaseDate))
@@ -48,9 +63,13 @@ class ReleaseCheckWorker @AssistedInject constructor(
                 watchlistDao.updateStatus(item.tmdbId, item.mediaType, detail.releaseStatus.name)
             }
             checkFollowedSeries()
-            Result.success()
+            if (networkFailed) Result.retry() else Result.success()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            Result.retry() // offline or flaky connection - worth trying again
         } catch (t: Throwable) {
-            Result.retry()
+            Result.failure() // a bug or bad data won't fix itself on retry
         }
     }
 
@@ -93,5 +112,6 @@ class ReleaseCheckWorker @AssistedInject constructor(
 
     companion object {
         const val UNIQUE_WORK_NAME = "release_check_periodic"
+        private const val CHECK_WINDOW_DAYS = 30L
     }
 }

@@ -1,5 +1,12 @@
 package com.georgearn.showtracker.ui.screens.home
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -41,6 +48,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
+import com.georgearn.showtracker.ui.screens.common.GroupHeader
+import com.georgearn.showtracker.ui.screens.common.MediaRow
+import com.georgearn.showtracker.ui.screens.common.MediaRowCaption
+import com.georgearn.showtracker.ui.screens.common.Pill
+import com.georgearn.showtracker.ui.screens.common.PillTone
+import com.georgearn.showtracker.ui.screens.common.RootTopBar
+import com.georgearn.showtracker.ui.screens.common.RowToggle
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -79,21 +93,23 @@ fun HomeScreen(
     onOpenDetail: (Int, String) -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenUpcoming: () -> Unit,
-    onOpenJustDropped: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val savedKeys by viewModel.savedKeys.collectAsStateWithLifecycle()
     val notifyKeys by viewModel.notifyKeys.collectAsStateWithLifecycle()
+    val filters by viewModel.filters.collectAsStateWithLifecycle()
+    val availableGenres by viewModel.availableGenres.collectAsStateWithLifecycle()
+    val newReleases by viewModel.visibleNewReleases.collectAsStateWithLifecycle()
+    val upcoming by viewModel.visibleUpcoming.collectAsStateWithLifecycle()
     val hasUnseenAlerts by viewModel.hasUnseenAlerts.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(pageCount = { homeTabs.size })
     val scope = rememberCoroutineScope()
     val withPermission = rememberNotificationPermissionGate()
 
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Show Tracker") },
+        RootTopBar(
+            title = "Show Tracker",
             actions = {
                 IconButton(onClick = onOpenNotifications) {
                     BadgedBox(badge = { if (hasUnseenAlerts) Badge() }) {
@@ -106,8 +122,7 @@ fun HomeScreen(
                 IconButton(onClick = onOpenSettings) {
                     Icon(Icons.Outlined.Settings, contentDescription = "Settings")
                 }
-            },
-            windowInsets = WindowInsets(0, 0, 0, 0)
+            }
         )
 
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -129,25 +144,41 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                    if (page == 0) {
-                        NewReleasesList(
-                            items = state.justDropped,
-                            savedKeys = savedKeys,
-                            onOpenDetail = onOpenDetail,
-                            onToggleWatchlist = viewModel::toggleWatchlist,
-                            onSeeAll = onOpenJustDropped
+                    Column(Modifier.fillMaxSize()) {
+                        val isNew = page == 0
+                        FilterBar(
+                            type = if (isNew) filters.newReleasesType else filters.upcomingType,
+                            onType = if (isNew) viewModel::setNewReleasesType else viewModel::setUpcomingType,
+                            genres = availableGenres,
+                            genreId = filters.genreId,
+                            onGenre = viewModel::setGenre
                         )
-                    } else {
-                        UpcomingTimeline(
-                            items = state.upcoming,
-                            notifyKeys = notifyKeys,
-                            onOpenDetail = onOpenDetail,
-                            onToggleNotify = { item ->
-                                if (item.key in notifyKeys) viewModel.toggleNotify(item)
-                                else withPermission { viewModel.toggleNotify(item) }
-                            },
-                            onSeeAll = onOpenUpcoming
-                        )
+                        val raw = if (isNew) state.justDropped else state.upcoming
+                        val visible = if (isNew) newReleases else upcoming
+                        if (raw.isNotEmpty() && visible.isEmpty()) {
+                            RefreshableEmpty(
+                                icon = Icons.Outlined.FilterList,
+                                title = "Nothing matches these filters",
+                                body = "Clear a filter to see more."
+                            )
+                        } else if (isNew) {
+                            NewReleasesList(
+                                items = visible,
+                                savedKeys = savedKeys,
+                                onOpenDetail = onOpenDetail,
+                                onToggleWatchlist = viewModel::toggleWatchlist
+                            )
+                        } else {
+                            UpcomingTimeline(
+                                items = visible,
+                                notifyKeys = notifyKeys,
+                                onOpenDetail = onOpenDetail,
+                                onToggleNotify = { item ->
+                                    if (item.key in notifyKeys) viewModel.toggleNotify(item)
+                                    else withPermission { viewModel.toggleNotify(item) }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -163,32 +194,13 @@ private fun RefreshableEmpty(icon: ImageVector, title: String, body: String) {
     }
 }
 
-@Composable
-private fun SectionHeader(title: String, onSeeAll: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .weight(1f)
-                .semantics { heading() }
-        )
-        TextButton(onClick = onSeeAll) { Text("See all") }
-    }
-}
-
 /** Vertical timeline grouped by relative-date bucket (Today / This Week / Next Week / ...). */
 @Composable
 private fun UpcomingTimeline(
     items: List<MediaSummary>,
     notifyKeys: Set<String>,
     onOpenDetail: (Int, String) -> Unit,
-    onToggleNotify: (MediaSummary) -> Unit,
-    onSeeAll: () -> Unit
+    onToggleNotify: (MediaSummary) -> Unit
 ) {
     if (items.isEmpty()) {
         RefreshableEmpty(
@@ -209,17 +221,9 @@ private fun UpcomingTimeline(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        item(key = "see_all") { SectionHeader("Releasing soon", onSeeAll) }
         grouped.forEach { (bucket, bucketItems) ->
             item(key = "header_$bucket") {
-                Text(
-                    text = bucket,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(top = 16.dp, bottom = 8.dp)
-                        .semantics { heading() }
-                )
+                GroupHeader(bucket, Modifier.padding(bottom = 8.dp))
             }
             items(bucketItems, key = { "u${it.key}" }) { item ->
                 TimelineRow(
@@ -246,8 +250,6 @@ private fun TimelineRow(
         Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier.width(20.dp).fillMaxHeight(),
@@ -255,8 +257,8 @@ private fun TimelineRow(
         ) {
             Box(
                 Modifier
-                    .padding(top = 6.dp)
-                    .size(10.dp)
+                    .padding(top = 8.dp)
+                    .size(12.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary)
             )
@@ -270,57 +272,25 @@ private fun TimelineRow(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .padding(start = 12.dp, bottom = 16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        MediaRow(
+            posterPath = item.posterPath,
+            title = item.title,
+            onClick = onClick,
+            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
+            trailing = {
+                Pill(DateUtils.countdownLabel(item.releaseDate), tone = PillTone.ACCENT)
+                RowToggle(
+                    checked = isNotifyOn,
+                    onToggle = onToggleNotify,
+                    onIcon = Icons.Filled.NotificationsActive,
+                    offIcon = Icons.Outlined.NotificationsNone,
+                    description = "Release alert for ${item.title}"
+                )
+            }
         ) {
-            PosterImage(
-                path = item.posterPath,
-                contentDescription = null,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.width(52.dp).aspectRatio(2f / 3f)
-            )
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .weight(1f)
-            ) {
-                Text(item.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(
-                    DateUtils.formatForDisplay(item.releaseDate),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            CountdownChip(DateUtils.countdownLabel(item.releaseDate))
-            IconToggleButton(
-                checked = isNotifyOn,
-                onCheckedChange = { onToggleNotify() },
-                modifier = Modifier.semantics { contentDescription = "Release alert for ${item.title}" }
-            ) {
-                Icon(
-                    if (isNotifyOn) Icons.Filled.NotificationsActive else Icons.Outlined.NotificationsNone,
-                    contentDescription = null,
-                    tint = if (isNotifyOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            MediaRowCaption(DateUtils.formatForDisplay(item.releaseDate))
         }
     }
-}
-
-@Composable
-private fun CountdownChip(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
-    )
 }
 
 /** Recency-first list: poster, title, "released X ago" tag, TMDB score, quick-add. */
@@ -329,8 +299,7 @@ private fun NewReleasesList(
     items: List<MediaSummary>,
     savedKeys: Set<String>,
     onOpenDetail: (Int, String) -> Unit,
-    onToggleWatchlist: (MediaSummary) -> Unit,
-    onSeeAll: () -> Unit
+    onToggleWatchlist: (MediaSummary) -> Unit
 ) {
     if (items.isEmpty()) {
         RefreshableEmpty(
@@ -346,7 +315,6 @@ private fun NewReleasesList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item(key = "see_all") { SectionHeader("Released in the last 30 days", onSeeAll) }
         items(items, key = { "d${it.key}" }) { item ->
             NewReleaseRow(
                 item = item,
@@ -365,64 +333,86 @@ private fun NewReleaseRow(
     onClick: () -> Unit,
     onToggleWatchlist: () -> Unit
 ) {
+    MediaRow(
+        posterPath = item.posterPath,
+        title = item.title,
+        onClick = onClick,
+        trailing = {
+            RowToggle(
+                checked = isSaved,
+                onToggle = onToggleWatchlist,
+                onIcon = Icons.Default.Check,
+                offIcon = Icons.Default.Add,
+                description = "Watchlist: ${item.title}"
+            )
+        }
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill(DateUtils.agoLabel(item.releaseDate), tone = PillTone.ACCENT)
+            if (item.tmdbVoteAverage > 0.0) {
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "%.1f".format(item.tmdbVoteAverage),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { contentDescription = "TMDB rating %.1f".format(item.tmdbVoteAverage) }
+                )
+            }
+        }
+    }
+}
+
+/** Movies/Series chips for the current tab, plus a genre menu shared by both tabs. */
+@Composable
+private fun FilterBar(
+    type: TypeFilter,
+    onType: (TypeFilter) -> Unit,
+    genres: List<Pair<Int, String>>,
+    genreId: Int?,
+    onGenre: (Int?) -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Box {
-            PosterImage(
-                path = item.posterPath,
-                contentDescription = null,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.width(64.dp).aspectRatio(2f / 3f)
-            )
-            Text(
-                text = DateUtils.agoLabel(item.releaseDate),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onTertiary,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(4.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.tertiary)
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
+        TypeFilter.entries.forEach { f ->
+            FilterChip(selected = type == f, onClick = { onType(f) }, label = { Text(f.label) })
         }
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .weight(1f)
-        ) {
-            Text(item.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (item.tmdbVoteAverage > 0.0) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                    Icon(
-                        Icons.Default.Star,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(14.dp)
+        Spacer(Modifier.weight(1f))
+        if (genres.isNotEmpty()) {
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    BadgedBox(badge = { if (genreId != null) Badge() }) {
+                        Icon(
+                            Icons.Outlined.FilterList,
+                            contentDescription = if (genreId != null) "Genre filter, active" else "Genre filter"
+                        )
+                    }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("All genres") },
+                        onClick = { onGenre(genreId); menuOpen = false },
+                        enabled = genreId != null
                     )
-                    Text(
-                        text = "%.1f".format(item.tmdbVoteAverage),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(start = 4.dp)
-                            .semantics { contentDescription = "TMDB rating %.1f".format(item.tmdbVoteAverage) }
-                    )
+                    genres.forEach { (id, name) ->
+                        DropdownMenuItem(
+                            text = { Text(name) },
+                            trailingIcon = { if (id == genreId) Icon(Icons.Default.Check, contentDescription = null) },
+                            onClick = { onGenre(id); menuOpen = false }
+                        )
+                    }
                 }
             }
-        }
-        FilledTonalIconToggleButton(
-            checked = isSaved,
-            onCheckedChange = { onToggleWatchlist() },
-            modifier = Modifier.semantics { contentDescription = "Watchlist: ${item.title}" }
-        ) {
-            Icon(if (isSaved) Icons.Default.Check else Icons.Default.Add, contentDescription = null)
         }
     }
 }

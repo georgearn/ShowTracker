@@ -60,9 +60,7 @@ class DiscoverViewModel @Inject constructor(
     private val _state = MutableStateFlow(DiscoverUiState())
     val state: StateFlow<DiscoverUiState> = _state.asStateFlow()
 
-    val savedKeys: StateFlow<Set<String>> = repository.observeWatchlist()
-        .map { list -> list.map { it.key }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+    val savedKeys: StateFlow<Set<String>> = repository.savedKeys
 
     private val query = MutableStateFlow("")
 

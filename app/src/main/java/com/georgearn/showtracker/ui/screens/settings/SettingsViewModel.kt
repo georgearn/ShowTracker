@@ -1,5 +1,12 @@
 package com.georgearn.showtracker.ui.screens.settings
 
+import android.content.Context
+import android.net.Uri
+import com.georgearn.showtracker.ui.screens.common.UserMessage
+import com.georgearn.showtracker.ui.screens.common.UserMessageBus
+import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.georgearn.showtracker.data.local.ContentRefreshBus
@@ -21,8 +28,34 @@ data class GenreToggleOption(val label: String, val ids: Set<Int>)
 class SettingsViewModel @Inject constructor(
     private val userPrefs: UserPrefs,
     private val refreshBus: ContentRefreshBus,
-    private val repository: MediaRepository
+    private val repository: MediaRepository,
+    private val messages: UserMessageBus,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
+
+    /** Writes the watchlist as JSON to a file the user picked. */
+    fun exportWatchlist(uri: Uri) = viewModelScope.launch {
+        val result = runCatching {
+            val json = repository.exportWatchlistJson()
+            withContext(Dispatchers.IO) {
+                context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(json.toByteArray()) }
+            }
+        }
+        messages.post(UserMessage(if (result.isSuccess) "Watchlist exported" else "Couldn't export the watchlist"))
+    }
+
+    /** Merges an exported file into the watchlist; existing titles are overwritten by the file's copy. */
+    fun importWatchlist(uri: Uri) = viewModelScope.launch {
+        val result = runCatching {
+            val json = withContext(Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+            }
+            repository.importWatchlistJson(json)
+        }
+        messages.post(
+            UserMessage(result.fold({ "Imported $it titles" }, { "That file isn't a Show Tracker export" }))
+        )
+    }
 
     val themeMode: StateFlow<ThemeMode> = userPrefs.themeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ThemeMode.SYSTEM)

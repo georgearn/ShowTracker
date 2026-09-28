@@ -38,7 +38,10 @@ data class WatchlistUiState(
     val organization: WatchlistOrganization = WatchlistOrganization.PLAIN,
     val readyToWatch: WatchlistSection = WatchlistSection("Ready to watch", emptyList()),
     val waitingOnRelease: WatchlistSection = WatchlistSection("Waiting on release", emptyList()),
-    val history: WatchlistSection = WatchlistSection("Watched", emptyList())
+    val history: WatchlistSection = WatchlistSection("Watched", emptyList()),
+    val query: String = "",
+    /** Size of the whole watchlist, unaffected by [query]. */
+    val totalCount: Int = 0
 )
 
 @HiltViewModel
@@ -52,14 +55,22 @@ class WatchlistViewModel @Inject constructor(
     private val _tab = MutableStateFlow(WatchlistTab.LIST)
     val tab: StateFlow<WatchlistTab> = _tab
 
+    private val _query = MutableStateFlow("")
+
     val uiState: StateFlow<WatchlistUiState> = combine(
         repository.observeWatchlist(),
         _organization,
-        _tab
-    ) { list, org, tab ->
+        _tab,
+        _query
+    ) { all, org, tab, query ->
+        // Title or genre match, so "comedy" works as well as a name.
+        val q = query.trim()
+        val list = if (q.isEmpty()) all else all.filter { it.title.contains(q, ignoreCase = true) || it.genres.contains(q, ignoreCase = true) }
         WatchlistUiState(
             tab = tab,
             organization = org,
+            query = query,
+            totalCount = all.size,
             readyToWatch = WatchlistSection(
                 "Ready to watch",
                 group(list.filter { !it.watched && DateUtils.releaseStatus(it.releaseDate) == ReleaseStatus.RELEASED }, org)
@@ -94,6 +105,10 @@ class WatchlistViewModel @Inject constructor(
 
     fun setOrganization(org: WatchlistOrganization) {
         _organization.value = org
+    }
+
+    fun setQuery(query: String) {
+        _query.value = query
     }
 
     fun setTab(tab: WatchlistTab) {

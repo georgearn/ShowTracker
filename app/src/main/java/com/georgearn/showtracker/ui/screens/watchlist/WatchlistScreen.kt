@@ -1,5 +1,13 @@
 package com.georgearn.showtracker.ui.screens.watchlist
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,9 +43,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.PrimaryTabRow
+import com.georgearn.showtracker.ui.screens.common.GroupHeader
+import com.georgearn.showtracker.ui.screens.common.MediaRow
+import com.georgearn.showtracker.ui.screens.common.MediaRowCaption
+import com.georgearn.showtracker.ui.screens.common.Pill
+import com.georgearn.showtracker.ui.screens.common.PillTone
+import com.georgearn.showtracker.ui.screens.common.RootTopBar
+import com.georgearn.showtracker.ui.screens.common.RowToggle
+import com.georgearn.showtracker.ui.screens.common.SectionHeader
+import androidx.compose.material3.Tab
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -89,35 +104,47 @@ fun WatchlistScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        val count = state.readyToWatch.count + state.waitingOnRelease.count + state.history.count
-        TopAppBar(
-            title = {
-                Column {
-                    Text("My Watchlist")
-                    Text(
-                        "$count saved",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+        var searchOpen by rememberSaveable { mutableStateOf(false) }
+        RootTopBar(
+            title = "My Watchlist",
+            subtitle = "${state.totalCount} saved",
+            actions = {
+                IconButton(onClick = {
+                    if (searchOpen) viewModel.setQuery("")
+                    searchOpen = !searchOpen
+                }) {
+                    Icon(
+                        if (searchOpen) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = if (searchOpen) "Close search" else "Search watchlist"
                     )
                 }
-            },
-            actions = { OrganizationMenu(state.organization, viewModel::setOrganization) },
-            windowInsets = WindowInsets(0, 0, 0, 0)
+                OrganizationMenu(state.organization, viewModel::setOrganization)
+            }
         )
+        if (searchOpen) {
+            val focusRequester = remember { FocusRequester() }
+            LaunchedEffect(Unit) { focusRequester.requestFocus() }
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = viewModel::setQuery,
+                placeholder = { Text("Title or genre") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = CircleShape,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .focusRequester(focusRequester)
+            )
+        }
 
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
-            WatchlistTab.entries.forEachIndexed { index, t ->
-                SegmentedButton(
+        PrimaryTabRow(selectedTabIndex = state.tab.ordinal) {
+            WatchlistTab.entries.forEach { t ->
+                Tab(
                     selected = state.tab == t,
                     onClick = { viewModel.setTab(t) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = WatchlistTab.entries.size)
-                ) {
-                    Text(if (t == WatchlistTab.HISTORY) "${t.label} (${state.history.count})" else t.label)
-                }
+                    text = { Text(if (t == WatchlistTab.HISTORY) "${t.label} (${state.history.count})" else t.label) }
+                )
             }
         }
 
@@ -126,7 +153,13 @@ fun WatchlistScreen(
             WatchlistTab.HISTORY -> state.history.count == 0
         }
 
-        if (isEmpty) {
+        if (isEmpty && state.query.isNotBlank()) {
+            EmptyState(
+                icon = Icons.Default.Search,
+                title = "No matches",
+                body = "Nothing in this tab matches \"${state.query.trim()}\"."
+            )
+        } else if (isEmpty) {
             when (state.tab) {
                 WatchlistTab.LIST -> EmptyState(
                     icon = Icons.Outlined.BookmarkBorder,
@@ -141,8 +174,8 @@ fun WatchlistScreen(
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 when (state.tab) {
                     WatchlistTab.LIST -> {
@@ -193,7 +226,7 @@ private fun LazyListScope.section(
     actions: RowActions
 ) {
     if (section.count == 0) return
-    item(key = "section_$keyPrefix") { SectionHeader(section.title, section.count) }
+    item(key = "section_$keyPrefix") { SectionHeader("${section.title} (${section.count})") }
     section.groups.forEach { group ->
         if (group.title != null) {
             item(key = "group_${keyPrefix}_${group.title}") { GroupHeader(group.title) }
@@ -204,33 +237,14 @@ private fun LazyListScope.section(
     }
 }
 
-@Composable
-private fun SectionHeader(title: String, count: Int) {
-    Text(
-        text = "$title ($count)",
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier
-            .padding(top = 4.dp)
-            .semantics { heading() }
-    )
-}
-
-@Composable
-private fun GroupHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.semantics { heading() }
-    )
-}
-
 /** Swipe left removes (with Undo), swipe right marks watched - released titles only. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, modifier: Modifier = Modifier) {
     val isReleased = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.RELEASED
     val dismissState = rememberSwipeToDismissBoxState(
+        // Require a deliberate swipe: past half the row width before an action fires.
+        positionalThreshold = { totalDistance -> totalDistance * 0.5f },
         confirmValueChange = { value ->
             when (value) {
                 SwipeToDismissBoxValue.EndToStart -> {
@@ -256,7 +270,7 @@ private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, mo
             Box(
                 Modifier
                     .fillMaxSize()
-                    .clip(CardDefaults.shape)
+                    .clip(MaterialTheme.shapes.small)
                     .background(container)
                     .padding(horizontal = 24.dp),
                 contentAlignment = if (towardsEnd) Alignment.CenterStart else Alignment.CenterEnd
@@ -275,11 +289,13 @@ private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, mo
 
 @Composable
 private fun WatchlistRow(item: WatchlistEntity, isReleased: Boolean, actions: RowActions) {
-    Card(
+    MediaRow(
+        posterPath = item.posterPath,
+        title = item.title,
+        onClick = { actions.open(item) },
+        // Opaque so the swipe background only shows where the row has moved away.
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(CardDefaults.shape)
-            .clickable { actions.open(item) }
+            .background(MaterialTheme.colorScheme.surface)
             .semantics {
                 customActions = listOf(
                     CustomAccessibilityAction("Remove from watchlist") {
@@ -287,61 +303,32 @@ private fun WatchlistRow(item: WatchlistEntity, isReleased: Boolean, actions: Ro
                         true
                     }
                 )
-            }
-    ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            PosterImage(
-                path = item.posterPath,
-                contentDescription = null,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.width(64.dp).aspectRatio(2f / 3f)
-            )
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    item.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    if (isReleased) DateUtils.formatForDisplay(item.releaseDate) else "Releases ${DateUtils.countdownLabel(item.releaseDate)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                ScoreRow(item.imdbRating, item.rottenTomatoesScore, null)
-                seasonChipText(item)?.let { SeasonChip(it) }
-            }
+            },
+        trailing = {
             if (isReleased) {
-                IconToggleButton(
+                RowToggle(
                     checked = item.watched,
-                    onCheckedChange = { actions.toggleWatched(item) },
-                    modifier = Modifier.semantics { contentDescription = "Watched" }
-                ) {
-                    Icon(
-                        if (item.watched) Icons.Default.CheckCircle else Icons.Outlined.CheckCircleOutline,
-                        contentDescription = null,
-                        tint = if (item.watched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                    onToggle = { actions.toggleWatched(item) },
+                    onIcon = Icons.Default.Check,
+                    offIcon = Icons.Outlined.CheckCircleOutline,
+                    description = "Watched"
+                )
             } else {
-                IconToggleButton(
+                RowToggle(
                     checked = item.notifyOnRelease,
-                    onCheckedChange = { actions.toggleNotify(item) },
-                    modifier = Modifier.semantics { contentDescription = "Release alert" }
-                ) {
-                    Icon(
-                        if (item.notifyOnRelease) Icons.Default.NotificationsActive else Icons.Outlined.NotificationsNone,
-                        contentDescription = null,
-                        tint = if (item.notifyOnRelease) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                    onToggle = { actions.toggleNotify(item) },
+                    onIcon = Icons.Default.NotificationsActive,
+                    offIcon = Icons.Outlined.NotificationsNone,
+                    description = "Release alert"
+                )
             }
         }
+    ) {
+        MediaRowCaption(
+            if (isReleased) DateUtils.formatForDisplay(item.releaseDate) else "Releases ${DateUtils.countdownLabel(item.releaseDate)}"
+        )
+        ScoreRow(item.imdbRating, item.rottenTomatoesScore, null)
+        seasonChipText(item)?.let { Pill(it, tone = PillTone.ACCENT) }
     }
 }
 
@@ -357,15 +344,3 @@ private fun seasonChipText(item: WatchlistEntity): String? {
     }
 }
 
-@Composable
-private fun SeasonChip(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onTertiaryContainer,
-        modifier = Modifier
-            .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.tertiaryContainer)
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-    )
-}

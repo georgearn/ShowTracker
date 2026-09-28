@@ -1,5 +1,9 @@
 package com.georgearn.showtracker.ui.screens.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -73,6 +77,12 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val pendingRefresh by viewModel.pendingRefresh.collectAsStateWithLifecycle()
     val feedQuality by viewModel.feedQuality.collectAsStateWithLifecycle()
     var countrySearch by remember { mutableStateOf("") }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) viewModel.exportWatchlist(uri)
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.importWatchlist(uri)
+    }
     var expandedContinents by remember { mutableStateOf(setOf<String>()) }
 
     Scaffold(
@@ -355,6 +365,25 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                             )
                         }
                     }
+                }
+            }
+
+            item {
+                SettingsSection(title = "Backup", modifier = Modifier.padding(top = 20.dp)) {
+                    ListItem(
+                        headlineContent = { Text("Export watchlist") },
+                        supportingContent = { Text("Save your list and history to a file") },
+                        leadingContent = { Icon(Icons.Default.Upload, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { exportLauncher.launch("showtracker-watchlist.json") }
+                    )
+                    ListItem(
+                        headlineContent = { Text("Import watchlist") },
+                        supportingContent = { Text("Restore from an exported file") },
+                        leadingContent = { Icon(Icons.Default.Download, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
+                    )
                 }
             }
 

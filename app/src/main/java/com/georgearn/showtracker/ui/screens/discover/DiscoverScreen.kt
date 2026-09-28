@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.discover
 
+import com.georgearn.showtracker.ui.screens.common.RootTopBar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,7 +69,7 @@ fun DiscoverScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(title = { Text("Discover") }, windowInsets = WindowInsets(0, 0, 0, 0))
+        RootTopBar(title = "Discover")
 
         Column(Modifier.padding(horizontal = 16.dp)) {
             TextField(
