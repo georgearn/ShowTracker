@@ -96,16 +96,12 @@ fun PosterOverlayCard(
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
             PosterImage(item.posterPath, contentDescription = null, modifier = Modifier.fillMaxSize())
             if (caption != null) {
-                Text(
-                    text = caption,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                Pill(
+                    caption,
+                    tone = PillTone.OVERLAY,
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(6.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.65f))
-                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                        .padding(8.dp)
                 )
             }
             OverlayToggle(

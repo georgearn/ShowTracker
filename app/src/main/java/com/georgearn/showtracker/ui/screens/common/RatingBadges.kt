@@ -13,24 +13,7 @@ import androidx.compose.ui.unit.dp
 /** Small pill showing a score, e.g. "IMDb 8.4/10" or "RT 91%". Null value -> not rendered by caller. */
 @Composable
 fun ScoreBadge(label: String, value: String, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.secondaryContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(4.dp)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer
-        )
-    }
+    Pill("$label $value", modifier)
 }
 
 @Composable

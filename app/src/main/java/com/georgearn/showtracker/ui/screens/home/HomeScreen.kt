@@ -41,6 +41,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
+import com.georgearn.showtracker.ui.screens.common.GroupHeader
+import com.georgearn.showtracker.ui.screens.common.MediaRow
+import com.georgearn.showtracker.ui.screens.common.MediaRowCaption
+import com.georgearn.showtracker.ui.screens.common.Pill
+import com.georgearn.showtracker.ui.screens.common.PillTone
+import com.georgearn.showtracker.ui.screens.common.RootTopBar
+import com.georgearn.showtracker.ui.screens.common.RowToggle
+import com.georgearn.showtracker.ui.screens.common.SectionHeader
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -92,8 +100,8 @@ fun HomeScreen(
     val withPermission = rememberNotificationPermissionGate()
 
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Show Tracker") },
+        RootTopBar(
+            title = "Show Tracker",
             actions = {
                 IconButton(onClick = onOpenNotifications) {
                     BadgedBox(badge = { if (hasUnseenAlerts) Badge() }) {
@@ -106,8 +114,7 @@ fun HomeScreen(
                 IconButton(onClick = onOpenSettings) {
                     Icon(Icons.Outlined.Settings, contentDescription = "Settings")
                 }
-            },
-            windowInsets = WindowInsets(0, 0, 0, 0)
+            }
         )
 
         PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
@@ -163,24 +170,6 @@ private fun RefreshableEmpty(icon: ImageVector, title: String, body: String) {
     }
 }
 
-@Composable
-private fun SectionHeader(title: String, onSeeAll: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            title,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .weight(1f)
-                .semantics { heading() }
-        )
-        TextButton(onClick = onSeeAll) { Text("See all") }
-    }
-}
-
 /** Vertical timeline grouped by relative-date bucket (Today / This Week / Next Week / ...). */
 @Composable
 private fun UpcomingTimeline(
@@ -209,17 +198,10 @@ private fun UpcomingTimeline(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        item(key = "see_all") { SectionHeader("Releasing soon", onSeeAll) }
+        item(key = "see_all") { SectionHeader("Releasing soon", onSeeAll = onSeeAll) }
         grouped.forEach { (bucket, bucketItems) ->
             item(key = "header_$bucket") {
-                Text(
-                    text = bucket,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .padding(top = 16.dp, bottom = 8.dp)
-                        .semantics { heading() }
-                )
+                GroupHeader(bucket, Modifier.padding(bottom = 8.dp))
             }
             items(bucketItems, key = { "u${it.key}" }) { item ->
                 TimelineRow(
@@ -246,8 +228,6 @@ private fun TimelineRow(
         Modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
-            .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
     ) {
         Column(
             modifier = Modifier.width(20.dp).fillMaxHeight(),
@@ -255,8 +235,8 @@ private fun TimelineRow(
         ) {
             Box(
                 Modifier
-                    .padding(top = 6.dp)
-                    .size(10.dp)
+                    .padding(top = 8.dp)
+                    .size(12.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary)
             )
@@ -270,57 +250,25 @@ private fun TimelineRow(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .padding(start = 12.dp, bottom = 16.dp)
-                .fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+        MediaRow(
+            posterPath = item.posterPath,
+            title = item.title,
+            onClick = onClick,
+            modifier = Modifier.padding(start = 12.dp, bottom = 8.dp),
+            trailing = {
+                Pill(DateUtils.countdownLabel(item.releaseDate), tone = PillTone.ACCENT)
+                RowToggle(
+                    checked = isNotifyOn,
+                    onToggle = onToggleNotify,
+                    onIcon = Icons.Filled.NotificationsActive,
+                    offIcon = Icons.Outlined.NotificationsNone,
+                    description = "Release alert for ${item.title}"
+                )
+            }
         ) {
-            PosterImage(
-                path = item.posterPath,
-                contentDescription = null,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.width(52.dp).aspectRatio(2f / 3f)
-            )
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .weight(1f)
-            ) {
-                Text(item.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(
-                    DateUtils.formatForDisplay(item.releaseDate),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            CountdownChip(DateUtils.countdownLabel(item.releaseDate))
-            IconToggleButton(
-                checked = isNotifyOn,
-                onCheckedChange = { onToggleNotify() },
-                modifier = Modifier.semantics { contentDescription = "Release alert for ${item.title}" }
-            ) {
-                Icon(
-                    if (isNotifyOn) Icons.Filled.NotificationsActive else Icons.Outlined.NotificationsNone,
-                    contentDescription = null,
-                    tint = if (isNotifyOn) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            MediaRowCaption(DateUtils.formatForDisplay(item.releaseDate))
         }
     }
-}
-
-@Composable
-private fun CountdownChip(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.onPrimaryContainer,
-        modifier = Modifier
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primaryContainer)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
-    )
 }
 
 /** Recency-first list: poster, title, "released X ago" tag, TMDB score, quick-add. */
@@ -346,7 +294,7 @@ private fun NewReleasesList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item(key = "see_all") { SectionHeader("Released in the last 30 days", onSeeAll) }
+        item(key = "see_all") { SectionHeader("Released in the last 30 days", onSeeAll = onSeeAll) }
         items(items, key = { "d${it.key}" }) { item ->
             NewReleaseRow(
                 item = item,
@@ -365,64 +313,36 @@ private fun NewReleaseRow(
     onClick: () -> Unit,
     onToggleWatchlist: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+    MediaRow(
+        posterPath = item.posterPath,
+        title = item.title,
+        onClick = onClick,
+        trailing = {
+            RowToggle(
+                checked = isSaved,
+                onToggle = onToggleWatchlist,
+                onIcon = Icons.Default.Check,
+                offIcon = Icons.Default.Add,
+                description = "Watchlist: ${item.title}"
+            )
+        }
     ) {
-        Box {
-            PosterImage(
-                path = item.posterPath,
-                contentDescription = null,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.width(64.dp).aspectRatio(2f / 3f)
-            )
-            Text(
-                text = DateUtils.agoLabel(item.releaseDate),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onTertiary,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(4.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.tertiary)
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
-        }
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .weight(1f)
-        ) {
-            Text(item.title, style = MaterialTheme.typography.bodyLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Pill(DateUtils.agoLabel(item.releaseDate), tone = PillTone.ACCENT)
             if (item.tmdbVoteAverage > 0.0) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-                    Icon(
-                        Icons.Default.Star,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "%.1f".format(item.tmdbVoteAverage),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier
-                            .padding(start = 4.dp)
-                            .semantics { contentDescription = "TMDB rating %.1f".format(item.tmdbVoteAverage) }
-                    )
-                }
+                Icon(
+                    Icons.Default.Star,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Text(
+                    text = "%.1f".format(item.tmdbVoteAverage),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.semantics { contentDescription = "TMDB rating %.1f".format(item.tmdbVoteAverage) }
+                )
             }
-        }
-        FilledTonalIconToggleButton(
-            checked = isSaved,
-            onCheckedChange = { onToggleWatchlist() },
-            modifier = Modifier.semantics { contentDescription = "Watchlist: ${item.title}" }
-        ) {
-            Icon(if (isSaved) Icons.Default.Check else Icons.Default.Add, contentDescription = null)
         }
     }
 }

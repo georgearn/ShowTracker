@@ -1,5 +1,8 @@
 package com.georgearn.showtracker.ui.screens.foryou
 
+import com.georgearn.showtracker.ui.screens.common.RootTopBar
+import com.georgearn.showtracker.ui.screens.common.Pill
+import com.georgearn.showtracker.ui.screens.common.PillTone
 import androidx.compose.foundation.background
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -84,19 +87,7 @@ fun ForYouScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = {
-                Column {
-                    Text("What to Watch")
-                    Text(
-                        "Picked from your watchlist",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            windowInsets = WindowInsets(0, 0, 0, 0)
-        )
+        RootTopBar(title = "What to Watch", subtitle = "Picked from your watchlist")
 
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             when (state.stage) {
@@ -412,36 +403,21 @@ private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
                     modifier = Modifier.fillMaxWidth().aspectRatio(3f / 4f)
                 )
                 if (!item.imdbRating.isNullOrBlank()) {
-                    Row(
+                    Pill(
+                        "★ ${item.imdbRating.removeSuffix("/10")}",
+                        tone = PillTone.OVERLAY,
                         modifier = Modifier
                             .align(Alignment.TopStart)
                             .padding(12.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.65f))
-                            .padding(horizontal = 10.dp, vertical = 5.dp)
-                    ) {
-                        Text(
-                            "★ ${item.imdbRating.removeSuffix("/10")}",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Color.White
-                        )
-                    }
+                    )
                 }
             }
-            Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(item.title, style = MaterialTheme.typography.titleLarge)
                 if (genres.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         genres.forEach { genre ->
-                            Text(
-                                genre,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                modifier = Modifier
-                                    .clip(MaterialTheme.shapes.small)
-                                    .background(MaterialTheme.colorScheme.secondaryContainer)
-                                    .padding(horizontal = 8.dp, vertical = 3.dp)
-                            )
+                            Pill(genre)
                         }
                     }
                 }

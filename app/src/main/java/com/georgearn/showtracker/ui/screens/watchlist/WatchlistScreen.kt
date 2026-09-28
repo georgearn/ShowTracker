@@ -36,6 +36,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PrimaryTabRow
+import com.georgearn.showtracker.ui.screens.common.GroupHeader
+import com.georgearn.showtracker.ui.screens.common.MediaRow
+import com.georgearn.showtracker.ui.screens.common.MediaRowCaption
+import com.georgearn.showtracker.ui.screens.common.Pill
+import com.georgearn.showtracker.ui.screens.common.PillTone
+import com.georgearn.showtracker.ui.screens.common.RootTopBar
+import com.georgearn.showtracker.ui.screens.common.RowToggle
+import com.georgearn.showtracker.ui.screens.common.SectionHeader
 import androidx.compose.material3.Tab
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -89,19 +97,10 @@ fun WatchlistScreen(
 
     Column(Modifier.fillMaxSize()) {
         val count = state.readyToWatch.count + state.waitingOnRelease.count + state.history.count
-        TopAppBar(
-            title = {
-                Column {
-                    Text("My Watchlist")
-                    Text(
-                        "$count saved",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            },
-            actions = { OrganizationMenu(state.organization, viewModel::setOrganization) },
-            windowInsets = WindowInsets(0, 0, 0, 0)
+        RootTopBar(
+            title = "My Watchlist",
+            subtitle = "$count saved",
+            actions = { OrganizationMenu(state.organization, viewModel::setOrganization) }
         )
 
         PrimaryTabRow(selectedTabIndex = state.tab.ordinal) {
@@ -134,8 +133,8 @@ fun WatchlistScreen(
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 when (state.tab) {
                     WatchlistTab.LIST -> {
@@ -186,7 +185,7 @@ private fun LazyListScope.section(
     actions: RowActions
 ) {
     if (section.count == 0) return
-    item(key = "section_$keyPrefix") { SectionHeader(section.title, section.count) }
+    item(key = "section_$keyPrefix") { SectionHeader("${section.title} (${section.count})") }
     section.groups.forEach { group ->
         if (group.title != null) {
             item(key = "group_${keyPrefix}_${group.title}") { GroupHeader(group.title) }
@@ -195,27 +194,6 @@ private fun LazyListScope.section(
             SwipeableWatchlistRow(item, actions, Modifier.animateItem())
         }
     }
-}
-
-@Composable
-private fun SectionHeader(title: String, count: Int) {
-    Text(
-        text = "$title ($count)",
-        style = MaterialTheme.typography.titleMedium,
-        modifier = Modifier
-            .padding(top = 4.dp)
-            .semantics { heading() }
-    )
-}
-
-@Composable
-private fun GroupHeader(title: String) {
-    Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.semantics { heading() }
-    )
 }
 
 /** Swipe left removes (with Undo), swipe right marks watched - released titles only. */
@@ -251,7 +229,7 @@ private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, mo
             Box(
                 Modifier
                     .fillMaxSize()
-                    .clip(CardDefaults.shape)
+                    .clip(MaterialTheme.shapes.small)
                     .background(container)
                     .padding(horizontal = 24.dp),
                 contentAlignment = if (towardsEnd) Alignment.CenterStart else Alignment.CenterEnd
@@ -270,11 +248,13 @@ private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, mo
 
 @Composable
 private fun WatchlistRow(item: WatchlistEntity, isReleased: Boolean, actions: RowActions) {
-    Card(
+    MediaRow(
+        posterPath = item.posterPath,
+        title = item.title,
+        onClick = { actions.open(item) },
+        // Opaque so the swipe background only shows where the row has moved away.
         modifier = Modifier
-            .fillMaxWidth()
-            .clip(CardDefaults.shape)
-            .clickable { actions.open(item) }
+            .background(MaterialTheme.colorScheme.surface)
             .semantics {
                 customActions = listOf(
                     CustomAccessibilityAction("Remove from watchlist") {
@@ -282,61 +262,32 @@ private fun WatchlistRow(item: WatchlistEntity, isReleased: Boolean, actions: Ro
                         true
                     }
                 )
-            }
-    ) {
-        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            PosterImage(
-                path = item.posterPath,
-                contentDescription = null,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.width(64.dp).aspectRatio(2f / 3f)
-            )
-            Column(
-                modifier = Modifier
-                    .padding(horizontal = 12.dp)
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    item.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    if (isReleased) DateUtils.formatForDisplay(item.releaseDate) else "Releases ${DateUtils.countdownLabel(item.releaseDate)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                ScoreRow(item.imdbRating, item.rottenTomatoesScore, null)
-                seasonChipText(item)?.let { SeasonChip(it) }
-            }
+            },
+        trailing = {
             if (isReleased) {
-                IconToggleButton(
+                RowToggle(
                     checked = item.watched,
-                    onCheckedChange = { actions.toggleWatched(item) },
-                    modifier = Modifier.semantics { contentDescription = "Watched" }
-                ) {
-                    Icon(
-                        if (item.watched) Icons.Default.CheckCircle else Icons.Outlined.CheckCircleOutline,
-                        contentDescription = null,
-                        tint = if (item.watched) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                    onToggle = { actions.toggleWatched(item) },
+                    onIcon = Icons.Default.Check,
+                    offIcon = Icons.Outlined.CheckCircleOutline,
+                    description = "Watched"
+                )
             } else {
-                IconToggleButton(
+                RowToggle(
                     checked = item.notifyOnRelease,
-                    onCheckedChange = { actions.toggleNotify(item) },
-                    modifier = Modifier.semantics { contentDescription = "Release alert" }
-                ) {
-                    Icon(
-                        if (item.notifyOnRelease) Icons.Default.NotificationsActive else Icons.Outlined.NotificationsNone,
-                        contentDescription = null,
-                        tint = if (item.notifyOnRelease) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                    onToggle = { actions.toggleNotify(item) },
+                    onIcon = Icons.Default.NotificationsActive,
+                    offIcon = Icons.Outlined.NotificationsNone,
+                    description = "Release alert"
+                )
             }
         }
+    ) {
+        MediaRowCaption(
+            if (isReleased) DateUtils.formatForDisplay(item.releaseDate) else "Releases ${DateUtils.countdownLabel(item.releaseDate)}"
+        )
+        ScoreRow(item.imdbRating, item.rottenTomatoesScore, null)
+        seasonChipText(item)?.let { Pill(it, tone = PillTone.ACCENT) }
     }
 }
 
@@ -352,15 +303,3 @@ private fun seasonChipText(item: WatchlistEntity): String? {
     }
 }
 
-@Composable
-private fun SeasonChip(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onTertiaryContainer,
-        modifier = Modifier
-            .clip(MaterialTheme.shapes.small)
-            .background(MaterialTheme.colorScheme.tertiaryContainer)
-            .padding(horizontal = 8.dp, vertical = 2.dp)
-    )
-}
