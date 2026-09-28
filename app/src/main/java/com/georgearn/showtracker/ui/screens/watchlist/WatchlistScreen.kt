@@ -35,9 +35,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -105,19 +104,13 @@ fun WatchlistScreen(
             windowInsets = WindowInsets(0, 0, 0, 0)
         )
 
-        SingleChoiceSegmentedButtonRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-        ) {
-            WatchlistTab.entries.forEachIndexed { index, t ->
-                SegmentedButton(
+        PrimaryTabRow(selectedTabIndex = state.tab.ordinal) {
+            WatchlistTab.entries.forEach { t ->
+                Tab(
                     selected = state.tab == t,
                     onClick = { viewModel.setTab(t) },
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = WatchlistTab.entries.size)
-                ) {
-                    Text(if (t == WatchlistTab.HISTORY) "${t.label} (${state.history.count})" else t.label)
-                }
+                    text = { Text(if (t == WatchlistTab.HISTORY) "${t.label} (${state.history.count})" else t.label) }
+                )
             }
         }
 
@@ -231,6 +224,8 @@ private fun GroupHeader(title: String) {
 private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, modifier: Modifier = Modifier) {
     val isReleased = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.RELEASED
     val dismissState = rememberSwipeToDismissBoxState(
+        // Require a deliberate swipe: past half the row width before an action fires.
+        positionalThreshold = { totalDistance -> totalDistance * 0.5f },
         confirmValueChange = { value ->
             when (value) {
                 SwipeToDismissBoxValue.EndToStart -> {
