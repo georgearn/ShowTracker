@@ -1,5 +1,13 @@
 package com.georgearn.showtracker.ui.screens.watchlist
 
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -96,12 +104,39 @@ fun WatchlistScreen(
     }
 
     Column(Modifier.fillMaxSize()) {
-        val count = state.readyToWatch.count + state.waitingOnRelease.count + state.history.count
+        var searchOpen by rememberSaveable { mutableStateOf(false) }
         RootTopBar(
             title = "My Watchlist",
-            subtitle = "$count saved",
-            actions = { OrganizationMenu(state.organization, viewModel::setOrganization) }
+            subtitle = "${state.totalCount} saved",
+            actions = {
+                IconButton(onClick = {
+                    if (searchOpen) viewModel.setQuery("")
+                    searchOpen = !searchOpen
+                }) {
+                    Icon(
+                        if (searchOpen) Icons.Default.Close else Icons.Default.Search,
+                        contentDescription = if (searchOpen) "Close search" else "Search watchlist"
+                    )
+                }
+                OrganizationMenu(state.organization, viewModel::setOrganization)
+            }
         )
+        if (searchOpen) {
+            val focusRequester = remember { FocusRequester() }
+            LaunchedEffect(Unit) { focusRequester.requestFocus() }
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = viewModel::setQuery,
+                placeholder = { Text("Title or genre") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                singleLine = true,
+                shape = CircleShape,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .focusRequester(focusRequester)
+            )
+        }
 
         PrimaryTabRow(selectedTabIndex = state.tab.ordinal) {
             WatchlistTab.entries.forEach { t ->
@@ -118,7 +153,13 @@ fun WatchlistScreen(
             WatchlistTab.HISTORY -> state.history.count == 0
         }
 
-        if (isEmpty) {
+        if (isEmpty && state.query.isNotBlank()) {
+            EmptyState(
+                icon = Icons.Default.Search,
+                title = "No matches",
+                body = "Nothing in this tab matches \"${state.query.trim()}\"."
+            )
+        } else if (isEmpty) {
             when (state.tab) {
                 WatchlistTab.LIST -> EmptyState(
                     icon = Icons.Outlined.BookmarkBorder,

@@ -1,5 +1,12 @@
 package com.georgearn.showtracker.ui.screens.home
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +55,6 @@ import com.georgearn.showtracker.ui.screens.common.Pill
 import com.georgearn.showtracker.ui.screens.common.PillTone
 import com.georgearn.showtracker.ui.screens.common.RootTopBar
 import com.georgearn.showtracker.ui.screens.common.RowToggle
-import com.georgearn.showtracker.ui.screens.common.SectionHeader
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -87,13 +93,15 @@ fun HomeScreen(
     onOpenDetail: (Int, String) -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenUpcoming: () -> Unit,
-    onOpenJustDropped: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val savedKeys by viewModel.savedKeys.collectAsStateWithLifecycle()
     val notifyKeys by viewModel.notifyKeys.collectAsStateWithLifecycle()
+    val filters by viewModel.filters.collectAsStateWithLifecycle()
+    val availableGenres by viewModel.availableGenres.collectAsStateWithLifecycle()
+    val newReleases by viewModel.visibleNewReleases.collectAsStateWithLifecycle()
+    val upcoming by viewModel.visibleUpcoming.collectAsStateWithLifecycle()
     val hasUnseenAlerts by viewModel.hasUnseenAlerts.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState(pageCount = { homeTabs.size })
     val scope = rememberCoroutineScope()
@@ -136,25 +144,41 @@ fun HomeScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-                    if (page == 0) {
-                        NewReleasesList(
-                            items = state.justDropped,
-                            savedKeys = savedKeys,
-                            onOpenDetail = onOpenDetail,
-                            onToggleWatchlist = viewModel::toggleWatchlist,
-                            onSeeAll = onOpenJustDropped
+                    Column(Modifier.fillMaxSize()) {
+                        val isNew = page == 0
+                        FilterBar(
+                            type = if (isNew) filters.newReleasesType else filters.upcomingType,
+                            onType = if (isNew) viewModel::setNewReleasesType else viewModel::setUpcomingType,
+                            genres = availableGenres,
+                            genreId = filters.genreId,
+                            onGenre = viewModel::setGenre
                         )
-                    } else {
-                        UpcomingTimeline(
-                            items = state.upcoming,
-                            notifyKeys = notifyKeys,
-                            onOpenDetail = onOpenDetail,
-                            onToggleNotify = { item ->
-                                if (item.key in notifyKeys) viewModel.toggleNotify(item)
-                                else withPermission { viewModel.toggleNotify(item) }
-                            },
-                            onSeeAll = onOpenUpcoming
-                        )
+                        val raw = if (isNew) state.justDropped else state.upcoming
+                        val visible = if (isNew) newReleases else upcoming
+                        if (raw.isNotEmpty() && visible.isEmpty()) {
+                            RefreshableEmpty(
+                                icon = Icons.Outlined.FilterList,
+                                title = "Nothing matches these filters",
+                                body = "Clear a filter to see more."
+                            )
+                        } else if (isNew) {
+                            NewReleasesList(
+                                items = visible,
+                                savedKeys = savedKeys,
+                                onOpenDetail = onOpenDetail,
+                                onToggleWatchlist = viewModel::toggleWatchlist
+                            )
+                        } else {
+                            UpcomingTimeline(
+                                items = visible,
+                                notifyKeys = notifyKeys,
+                                onOpenDetail = onOpenDetail,
+                                onToggleNotify = { item ->
+                                    if (item.key in notifyKeys) viewModel.toggleNotify(item)
+                                    else withPermission { viewModel.toggleNotify(item) }
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -176,8 +200,7 @@ private fun UpcomingTimeline(
     items: List<MediaSummary>,
     notifyKeys: Set<String>,
     onOpenDetail: (Int, String) -> Unit,
-    onToggleNotify: (MediaSummary) -> Unit,
-    onSeeAll: () -> Unit
+    onToggleNotify: (MediaSummary) -> Unit
 ) {
     if (items.isEmpty()) {
         RefreshableEmpty(
@@ -198,7 +221,6 @@ private fun UpcomingTimeline(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        item(key = "see_all") { SectionHeader("Releasing soon", onSeeAll = onSeeAll) }
         grouped.forEach { (bucket, bucketItems) ->
             item(key = "header_$bucket") {
                 GroupHeader(bucket, Modifier.padding(bottom = 8.dp))
@@ -277,8 +299,7 @@ private fun NewReleasesList(
     items: List<MediaSummary>,
     savedKeys: Set<String>,
     onOpenDetail: (Int, String) -> Unit,
-    onToggleWatchlist: (MediaSummary) -> Unit,
-    onSeeAll: () -> Unit
+    onToggleWatchlist: (MediaSummary) -> Unit
 ) {
     if (items.isEmpty()) {
         RefreshableEmpty(
@@ -294,7 +315,6 @@ private fun NewReleasesList(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item(key = "see_all") { SectionHeader("Released in the last 30 days", onSeeAll = onSeeAll) }
         items(items, key = { "d${it.key}" }) { item ->
             NewReleaseRow(
                 item = item,
@@ -342,6 +362,56 @@ private fun NewReleaseRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.semantics { contentDescription = "TMDB rating %.1f".format(item.tmdbVoteAverage) }
                 )
+            }
+        }
+    }
+}
+
+/** Movies/Series chips for the current tab, plus a genre menu shared by both tabs. */
+@Composable
+private fun FilterBar(
+    type: TypeFilter,
+    onType: (TypeFilter) -> Unit,
+    genres: List<Pair<Int, String>>,
+    genreId: Int?,
+    onGenre: (Int?) -> Unit
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 4.dp, top = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        TypeFilter.entries.forEach { f ->
+            FilterChip(selected = type == f, onClick = { onType(f) }, label = { Text(f.label) })
+        }
+        Spacer(Modifier.weight(1f))
+        if (genres.isNotEmpty()) {
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    BadgedBox(badge = { if (genreId != null) Badge() }) {
+                        Icon(
+                            Icons.Outlined.FilterList,
+                            contentDescription = if (genreId != null) "Genre filter, active" else "Genre filter"
+                        )
+                    }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("All genres") },
+                        onClick = { onGenre(genreId); menuOpen = false },
+                        enabled = genreId != null
+                    )
+                    genres.forEach { (id, name) ->
+                        DropdownMenuItem(
+                            text = { Text(name) },
+                            trailingIcon = { if (id == genreId) Icon(Icons.Default.Check, contentDescription = null) },
+                            onClick = { onGenre(id); menuOpen = false }
+                        )
+                    }
+                }
             }
         }
     }

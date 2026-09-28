@@ -48,11 +48,9 @@ import com.georgearn.showtracker.ui.screens.details.DetailsScreen
 import com.georgearn.showtracker.ui.screens.discover.DiscoverScreen
 import com.georgearn.showtracker.ui.screens.foryou.ForYouScreen
 import com.georgearn.showtracker.ui.screens.home.HomeScreen
-import com.georgearn.showtracker.ui.screens.justdropped.JustDroppedScreen
 import com.georgearn.showtracker.ui.screens.notifications.NotificationsScreen
 import com.georgearn.showtracker.ui.screens.onboarding.OnboardingScreen
 import com.georgearn.showtracker.ui.screens.settings.SettingsScreen
-import com.georgearn.showtracker.ui.screens.upcoming.UpcomingScreen
 import com.georgearn.showtracker.ui.screens.watchlist.WatchlistScreen
 
 private object Routes {
@@ -63,8 +61,6 @@ private object Routes {
     const val FOR_YOU = "foryou"
     const val SETTINGS = "settings"
     const val NOTIFICATIONS = "notifications"
-    const val UPCOMING = "upcoming"
-    const val JUST_DROPPED = "just_dropped"
     const val DETAILS = "details/{tmdbId}/{mediaType}"
     fun details(id: Int, type: String) = "details/$id/$type"
 }
@@ -189,25 +185,7 @@ fun ShowTrackerNavHost(
                     HomeScreen(
                         onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) },
                         onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
-                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                        onOpenUpcoming = { navController.navigate(Routes.UPCOMING) },
-                        onOpenJustDropped = { navController.navigate(Routes.JUST_DROPPED) }
-                    )
-                }
-            }
-            composable(Routes.UPCOMING) {
-                Box(belowStatusBar) {
-                    UpcomingScreen(
-                        onBack = { navController.popBackStack() },
-                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
-                    )
-                }
-            }
-            composable(Routes.JUST_DROPPED) {
-                Box(belowStatusBar) {
-                    JustDroppedScreen(
-                        onBack = { navController.popBackStack() },
-                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) }
                     )
                 }
             }

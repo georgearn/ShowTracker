@@ -1,5 +1,13 @@
 package com.georgearn.showtracker.data.repository
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
+import com.georgearn.showtracker.data.local.WatchlistBackup
 import com.georgearn.showtracker.BuildConfig
 import com.georgearn.showtracker.data.local.Countries
 import com.georgearn.showtracker.data.local.FeedQuality
@@ -305,6 +313,31 @@ class MediaRepository @Inject constructor(
     // ---------- Watchlist (handpicked saves) ----------
 
     fun observeWatchlist(): Flow<List<WatchlistEntity>> = watchlistDao.observeAll()
+
+    // One Room subscription for the whole app instead of one per ViewModel.
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val sharedWatchlist = watchlistDao.observeAll()
+        .shareIn(repositoryScope, SharingStarted.WhileSubscribed(5000), replay = 1)
+
+    /** Keys of every saved title. */
+    val savedKeys: StateFlow<Set<String>> = sharedWatchlist
+        .map { list -> list.map { it.key }.toSet() }
+        .stateIn(repositoryScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** Keys of saved titles with the release alert on. */
+    val notifyKeys: StateFlow<Set<String>> = sharedWatchlist
+        .map { list -> list.filter { it.notifyOnRelease }.map { it.key }.toSet() }
+        .stateIn(repositoryScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** Whole watchlist as JSON, for the Settings export. */
+    suspend fun exportWatchlistJson(): String = WatchlistBackup.toJson(watchlistDao.observeAll().first())
+
+    /** Merges an exported file into the watchlist; returns how many titles were imported. */
+    suspend fun importWatchlistJson(json: String): Int {
+        val items = WatchlistBackup.fromJson(json)
+        items.forEach { watchlistDao.upsert(it) }
+        return items.size
+    }
 
     /**
      * Titles with the bell on, split into "out now" (released in the last 30 days) and "coming up".
