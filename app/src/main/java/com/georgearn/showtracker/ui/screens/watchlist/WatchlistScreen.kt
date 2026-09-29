@@ -1,5 +1,9 @@
 package com.georgearn.showtracker.ui.screens.watchlist
 
+import androidx.compose.material3.SwipeToDismissBoxState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import kotlin.math.abs
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
@@ -237,15 +241,24 @@ private fun LazyListScope.section(
     }
 }
 
+private const val SWIPE_FRACTION = 0.6f
+
 /** Swipe left removes (with Undo), swipe right marks watched - released titles only. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, modifier: Modifier = Modifier) {
     val isReleased = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.RELEASED
+    // Material fires on a quick flick at any distance; that flick is what causes accidental
+    // swipes. Only accept a swipe once the row has actually been dragged past 60% of its width.
+    var rowWidth by remember { mutableFloatStateOf(0f) }
+    val stateRef = remember { arrayOfNulls<SwipeToDismissBoxState>(1) }
     val dismissState = rememberSwipeToDismissBoxState(
-        // Require a deliberate swipe: past half the row width before an action fires.
-        positionalThreshold = { totalDistance -> totalDistance * 0.5f },
+        positionalThreshold = { totalDistance -> totalDistance * SWIPE_FRACTION },
         confirmValueChange = { value ->
+            val dragged = stateRef[0]?.let { runCatching { abs(it.requireOffset()) }.getOrNull() } ?: 0f
+            if (value != SwipeToDismissBoxValue.Settled && (rowWidth == 0f || dragged < rowWidth * SWIPE_FRACTION)) {
+                return@rememberSwipeToDismissBoxState false
+            }
             when (value) {
                 SwipeToDismissBoxValue.EndToStart -> {
                     actions.remove(item)
@@ -259,10 +272,11 @@ private fun SwipeableWatchlistRow(item: WatchlistEntity, actions: RowActions, mo
             }
         }
     )
+    stateRef[0] = dismissState
     SwipeToDismissBox(
         state = dismissState,
         enableDismissFromStartToEnd = isReleased,
-        modifier = modifier,
+        modifier = modifier.onSizeChanged { rowWidth = it.width.toFloat() },
         backgroundContent = {
             val towardsEnd = dismissState.dismissDirection == SwipeToDismissBoxValue.StartToEnd
             val container = if (towardsEnd) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
