@@ -40,6 +40,7 @@ class UserPrefs @Inject constructor(private val context: Context) {
         val HIDE_SHORTS = booleanPreferencesKey("hide_short_films")
         val POPULAR_UPCOMING = booleanPreferencesKey("popular_upcoming_only")
         val HIDDEN_GENRES = stringSetPreferencesKey("hidden_genre_ids") // TMDB genre ids, as strings
+        val GEMINI_API_KEY = stringPreferencesKey("gemini_api_key") // user-supplied, excluded from backups
     }
 
     companion object {
@@ -79,6 +80,15 @@ class UserPrefs @Inject constructor(private val context: Context) {
 
     suspend fun setHiddenGenreIds(ids: Set<Int>) {
         context.dataStore.edit { it[Keys.HIDDEN_GENRES] = ids.map { id -> id.toString() }.toSet() }
+    }
+
+    /** The user's own Google AI (Gemini) key; null when none is saved. */
+    val geminiApiKey: Flow<String?> = context.dataStore.data.map { it[Keys.GEMINI_API_KEY]?.takeIf { key -> key.isNotBlank() } }
+
+    suspend fun setGeminiApiKey(key: String?) {
+        context.dataStore.edit {
+            if (key.isNullOrBlank()) it.remove(Keys.GEMINI_API_KEY) else it[Keys.GEMINI_API_KEY] = key.trim()
+        }
     }
 
     val seenAlertKeys: Flow<Set<String>> = context.dataStore.data.map { it[Keys.SEEN_ALERTS] ?: emptySet() }

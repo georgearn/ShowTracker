@@ -51,7 +51,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.filled.TipsAndUpdates
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -82,6 +84,7 @@ import com.georgearn.showtracker.util.DateUtils
 @Composable
 fun ForYouScreen(
     onOpenDetail: (Int, String) -> Unit,
+    onOpenAiPicks: () -> Unit,
     viewModel: ForYouViewModel = hiltViewModel()
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -91,7 +94,7 @@ fun ForYouScreen(
 
         Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
             when (state.stage) {
-                RecStage.INTRO -> IntroStage(viewModel)
+                RecStage.INTRO -> IntroStage(viewModel, onOpenAiPicks)
                 RecStage.QUIZ -> QuizStepStage(state, viewModel)
                 RecStage.SWIPE -> SwipeStage(state, viewModel, onOpenDetail)
             }
@@ -100,7 +103,7 @@ fun ForYouScreen(
 }
 
 @Composable
-private fun IntroStage(viewModel: ForYouViewModel) {
+private fun IntroStage(viewModel: ForYouViewModel, onOpenAiPicks: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -168,6 +171,33 @@ private fun IntroStage(viewModel: ForYouViewModel) {
                     Icon(Icons.Default.Shuffle, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                     Text("Drop Random Pick")
                 }
+            }
+        }
+
+        // Second path: look beyond the saved list. Lives here (not in the bottom bar) so the nav stays at four items.
+        Card(
+            onClick = onOpenAiPicks,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 16.dp),
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(Icons.Default.TipsAndUpdates, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                Column(Modifier.weight(1f)) {
+                    Text("Want something new?", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Ask AI for titles similar to what you love.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }

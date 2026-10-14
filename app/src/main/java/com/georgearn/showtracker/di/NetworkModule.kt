@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.georgearn.showtracker.BuildConfig
+import com.georgearn.showtracker.data.remote.gemini.GeminiApi
 import com.georgearn.showtracker.data.remote.omdb.OmdbApi
 import com.georgearn.showtracker.data.remote.tmdb.TmdbApi
 import com.squareup.moshi.Moshi
@@ -28,6 +29,7 @@ object ApiConstants {
     const val TMDB_BASE_URL = "https://api.themoviedb.org/3/"
     const val OMDB_BASE_URL = "https://www.omdbapi.com/"
     const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/"
+    const val GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/"
 }
 
 @Module
@@ -141,6 +143,25 @@ object NetworkModule {
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
             .create(TmdbApi::class.java)
+
+    /** No HTTP cache and no TMDB auth: AI answers shouldn't be replayed from disk, and the key is per request. */
+    @Provides
+    @Singleton
+    @Named("gemini")
+    fun provideGeminiClient(): OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideGeminiApi(@Named("gemini") client: OkHttpClient, moshi: Moshi): GeminiApi =
+        Retrofit.Builder()
+            .baseUrl(ApiConstants.GEMINI_BASE_URL)
+            .client(client)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+            .create(GeminiApi::class.java)
 
     @Provides
     @Singleton

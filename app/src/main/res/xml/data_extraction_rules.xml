@@ -2,6 +2,7 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="database" path="showtracker.db" />
+        <exclude domain="file" path="datastore/show_tracker_prefs.preferences_pb" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="database" path="showtracker.db" />

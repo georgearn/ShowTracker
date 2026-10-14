@@ -44,6 +44,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.georgearn.showtracker.ui.screens.aipicks.AiPicksScreen
 import com.georgearn.showtracker.ui.screens.details.DetailsScreen
 import com.georgearn.showtracker.ui.screens.discover.DiscoverScreen
 import com.georgearn.showtracker.ui.screens.foryou.ForYouScreen
@@ -61,6 +62,7 @@ private object Routes {
     const val FOR_YOU = "foryou"
     const val SETTINGS = "settings"
     const val NOTIFICATIONS = "notifications"
+    const val AI_PICKS = "aipicks"
     const val DETAILS = "details/{tmdbId}/{mediaType}"
     fun details(id: Int, type: String) = "details/$id/$type"
 }
@@ -201,7 +203,19 @@ fun ShowTrackerNavHost(
             }
             composable(Routes.FOR_YOU) {
                 Box(belowStatusBar) {
-                    ForYouScreen(onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) })
+                    ForYouScreen(
+                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) },
+                        onOpenAiPicks = { navController.navigate(Routes.AI_PICKS) }
+                    )
+                }
+            }
+            composable(Routes.AI_PICKS) {
+                Box(belowStatusBar) {
+                    AiPicksScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                        onOpenDetail = { id, type -> navController.navigate(Routes.details(id, type)) }
+                    )
                 }
             }
             composable(Routes.SETTINGS) {

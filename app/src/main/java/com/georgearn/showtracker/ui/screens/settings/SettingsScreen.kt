@@ -19,6 +19,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExpandLess
@@ -58,6 +61,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,6 +83,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     val genreOptions by viewModel.genreOptions.collectAsStateWithLifecycle()
     val pendingRefresh by viewModel.pendingRefresh.collectAsStateWithLifecycle()
     val feedQuality by viewModel.feedQuality.collectAsStateWithLifecycle()
+    val geminiKeyHint by viewModel.geminiKeyHint.collectAsStateWithLifecycle()
     var countrySearch by remember { mutableStateOf("") }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) viewModel.exportWatchlist(uri)
@@ -365,6 +373,66 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                             )
                         }
                     }
+                }
+            }
+
+            item {
+                var keyInput by remember { mutableStateOf("") }
+                var keyVisible by remember { mutableStateOf(false) }
+                SettingsSection(title = "AI recommendations", modifier = Modifier.padding(top = 20.dp)) {
+                    ListItem(
+                        headlineContent = { Text("Gemini API key") },
+                        supportingContent = {
+                            Text(
+                                if (geminiKeyHint != null) "Connected · key ending $geminiKeyHint"
+                                else "Not set · powers AI Picks on the For You tab"
+                            )
+                        },
+                        leadingContent = {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    )
+                    OutlinedTextField(
+                        value = keyInput,
+                        onValueChange = { keyInput = it.trim() },
+                        label = { Text(if (geminiKeyHint != null) "Replace key" else "Paste your key") },
+                        singleLine = true,
+                        visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(onClick = { keyVisible = !keyVisible }) {
+                                Icon(
+                                    if (keyVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (keyVisible) "Hide key" else "Show key"
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.saveGeminiKey(keyInput)
+                                keyInput = ""
+                            },
+                            enabled = keyInput.isNotBlank()
+                        ) { Text("Save key") }
+                        if (geminiKeyHint != null) {
+                            OutlinedButton(onClick = viewModel::clearGeminiKey) { Text("Remove") }
+                        }
+                    }
+                    Text(
+                        "Get a free key at aistudio.google.com/apikey. It stays on this device and is excluded from backups.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+                    )
                 }
             }
 
