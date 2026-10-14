@@ -18,6 +18,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -74,6 +75,21 @@ class SettingsViewModel @Inject constructor(
 
     val preferredGenreIds: StateFlow<Set<Int>> = userPrefs.preferredGenreIds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    /** Last 4 characters only; the full key never leaves [UserPrefs] except in the request header. */
+    val geminiKeyHint: StateFlow<String?> = userPrefs.geminiApiKey
+        .map { key -> key?.let { "…${it.takeLast(4)}" } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun saveGeminiKey(key: String) = viewModelScope.launch {
+        userPrefs.setGeminiApiKey(key)
+        messages.post(UserMessage("Gemini key saved"))
+    }
+
+    fun clearGeminiKey() = viewModelScope.launch {
+        userPrefs.setGeminiApiKey(null)
+        messages.post(UserMessage("Gemini key removed"))
+    }
 
     val feedQuality: StateFlow<FeedQuality> = userPrefs.feedQuality
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FeedQuality())
