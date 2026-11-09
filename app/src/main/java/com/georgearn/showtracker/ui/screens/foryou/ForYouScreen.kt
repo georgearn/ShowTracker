@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.foryou
 
+import com.georgearn.showtracker.ui.screens.common.LocalNavBarInset
 import com.georgearn.showtracker.ui.screens.common.RootTopBar
 import com.georgearn.showtracker.ui.screens.common.Pill
 import com.georgearn.showtracker.ui.screens.common.PillTone
@@ -108,6 +109,7 @@ private fun IntroStage(viewModel: ForYouViewModel, onOpenAiPicks: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .padding(bottom = LocalNavBarInset.current)
             .padding(top = 16.dp, bottom = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -210,6 +212,7 @@ private fun QuizStepStage(state: ForYouState, viewModel: ForYouViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .padding(bottom = LocalNavBarInset.current)
             .padding(bottom = 24.dp)
     ) {
         Row(
@@ -382,7 +385,8 @@ private fun SwipeStage(
                 }
             }
             current != null -> Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 8.dp, bottom = 24.dp),
+                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+            .padding(bottom = LocalNavBarInset.current).padding(top = 8.dp, bottom = 24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {

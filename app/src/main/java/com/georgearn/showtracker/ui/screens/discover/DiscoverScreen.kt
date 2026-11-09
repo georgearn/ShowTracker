@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.discover
 
+import com.georgearn.showtracker.ui.screens.common.LocalNavBarInset
 import com.georgearn.showtracker.ui.screens.common.RootTopBar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -128,7 +129,7 @@ fun DiscoverScreen(
                 else -> LazyVerticalGrid(
                     state = gridState,
                     columns = PosterGridCells,
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp + LocalNavBarInset.current),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {

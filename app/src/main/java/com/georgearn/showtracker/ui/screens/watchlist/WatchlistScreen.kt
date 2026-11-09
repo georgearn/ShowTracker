@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.watchlist
 
+import com.georgearn.showtracker.ui.screens.common.LocalNavBarInset
 import androidx.compose.material3.SwipeToDismissBoxState
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.layout.onSizeChanged
@@ -178,7 +179,7 @@ fun WatchlistScreen(
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 24.dp + LocalNavBarInset.current),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 when (state.tab) {

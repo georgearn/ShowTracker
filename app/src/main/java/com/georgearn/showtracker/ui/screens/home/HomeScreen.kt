@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.home
 
+import com.georgearn.showtracker.ui.screens.common.LocalNavBarInset
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.DropdownMenu
@@ -219,7 +220,7 @@ private fun UpcomingTimeline(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + LocalNavBarInset.current)
     ) {
         grouped.forEach { (bucket, bucketItems) ->
             item(key = "header_$bucket") {
@@ -312,7 +313,7 @@ private fun NewReleasesList(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 8.dp + LocalNavBarInset.current),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(items, key = { "d${it.key}" }) { item ->

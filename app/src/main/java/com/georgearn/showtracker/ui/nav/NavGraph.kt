@@ -1,5 +1,14 @@
 package com.georgearn.showtracker.ui.nav
 
+import androidx.compose.foundation.background
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.unit.dp
+import com.georgearn.showtracker.ui.screens.common.LocalNavBarInset
+import io.github.itshedimisawi.vitro.LocalGlassDarkTheme
+import io.github.itshedimisawi.vitro.glassBackdrop
+import io.github.itshedimisawi.vitro.rememberGlassBackdrop
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -18,8 +27,6 @@ import androidx.compose.material.icons.outlined.Explore
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -67,7 +74,7 @@ private object Routes {
     fun details(id: Int, type: String) = "details/$id/$type"
 }
 
-private data class TopLevelDestination(
+internal data class TopLevelDestination(
     val route: String,
     val label: String,
     val selectedIcon: ImageVector,
@@ -81,7 +88,7 @@ private val fadeThroughOut = fadeOut(tween(durationMillis = 90))
 
 data class DeepLinkTarget(val tmdbId: Int, val mediaType: String)
 
-private val topLevelDestinations = listOf(
+internal val topLevelDestinations = listOf(
     TopLevelDestination(Routes.HOME, "Home", Icons.Filled.Home, Icons.Outlined.Home),
     TopLevelDestination(Routes.DISCOVER, "Discover", Icons.Filled.Explore, Icons.Outlined.Explore),
     TopLevelDestination(Routes.WATCHLIST, "List", Icons.Filled.Bookmarks, Icons.Outlined.Bookmarks),
@@ -131,41 +138,34 @@ fun ShowTrackerNavHost(
         }
     }
 
+    val showNavBar = currentRoute != null && topLevelDestinations.any { it.route == currentRoute }
+    val backdrop = rememberGlassBackdrop()
+    val isDark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            if (currentRoute != null && topLevelDestinations.any { it.route == currentRoute }) {
-                NavigationBar {
-                    topLevelDestinations.forEach { dest ->
-                        val selected = currentRoute == dest.route
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                navController.navigate(dest.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = {
-                                Icon(
-                                    if (selected) dest.selectedIcon else dest.unselectedIcon,
-                                    contentDescription = dest.label
-                                )
-                            },
-                            label = { Text(dest.label) }
-                        )
-                    }
-                }
-            }
+        snackbarHost = {
+            // Keep snackbars above the floating bar.
+            SnackbarHost(
+                snackbarHostState,
+                Modifier.padding(bottom = if (showNavBar) GlassNavBarHeight + GlassNavBarMargin else 0.dp)
+            )
         }
     ) { padding ->
+      CompositionLocalProvider(
+          LocalGlassDarkTheme provides isDark,
+          LocalNavBarInset provides if (showNavBar) GlassNavBarHeight + GlassNavBarMargin * 2 else 0.dp
+      ) {
+       Box(Modifier.fillMaxSize()) {
         // Details draws its backdrop under the status bar, so the top inset is applied per screen.
         val belowStatusBar = Modifier.padding(top = padding.calculateTopPadding())
         NavHost(
             navController = navController,
             startDestination = if (resolved) Routes.ONBOARDING else Routes.HOME,
-            modifier = Modifier.padding(bottom = padding.calculateBottomPadding()),
+            // Content runs under the floating bar; the glass needs it there to frost.
+            modifier = Modifier
+                .glassBackdrop(backdrop)
+                .background(MaterialTheme.colorScheme.background)
+                .padding(bottom = padding.calculateBottomPadding()),
             enterTransition = { fadeThroughIn },
             exitTransition = { fadeThroughOut },
             popEnterTransition = { fadeThroughIn },
@@ -244,5 +244,25 @@ fun ShowTrackerNavHost(
                 )
             }
         }
+        if (showNavBar) {
+            GlassNavBar(
+                backdrop = backdrop,
+                destinations = topLevelDestinations,
+                currentRoute = currentRoute,
+                onSelect = { dest ->
+                    navController.navigate(dest.route) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = padding.calculateBottomPadding())
+                    .padding(horizontal = 20.dp, vertical = GlassNavBarMargin)
+            )
+        }
+       }
+      }
     }
 }
