@@ -28,6 +28,13 @@ object WatchlistBackup {
                     .put("watchedAtEpochMillis", e.watchedAtEpochMillis)
                     .put("notifyOnRelease", e.notifyOnRelease)
                     .put("followSeasons", e.followSeasons)
+                    // Notification bookkeeping, so a restore doesn't re-send alerts already shown.
+                    .put("lastKnownReleaseStatus", e.lastKnownReleaseStatus)
+                    .put("releaseNotificationSent", e.releaseNotificationSent)
+                    .put("nextSeasonNumber", e.nextSeasonNumber)
+                    .put("nextSeasonAirDate", e.nextSeasonAirDate)
+                    .put("lastAnnouncedSeason", e.lastAnnouncedSeason)
+                    .put("lastReleasedSeason", e.lastReleasedSeason)
             )
         }
         return JSONObject().put("version", VERSION).put("watchlist", array).toString(2)
@@ -54,10 +61,18 @@ object WatchlistBackup {
                 watched = o.optBoolean("watched"),
                 watchedAtEpochMillis = if (o.isNull("watchedAtEpochMillis")) null else o.optLong("watchedAtEpochMillis"),
                 notifyOnRelease = o.optBoolean("notifyOnRelease"),
-                followSeasons = o.optBoolean("followSeasons")
+                followSeasons = o.optBoolean("followSeasons"),
+                lastKnownReleaseStatus = o.optString("lastKnownReleaseStatus", "UNKNOWN"),
+                releaseNotificationSent = o.optBoolean("releaseNotificationSent"),
+                nextSeasonNumber = o.optIntOrNull("nextSeasonNumber"),
+                nextSeasonAirDate = o.optStringOrNull("nextSeasonAirDate"),
+                lastAnnouncedSeason = o.optIntOrNull("lastAnnouncedSeason"),
+                lastReleasedSeason = o.optIntOrNull("lastReleasedSeason")
             )
         }
     }
 
-    private fun JSONObject.optStringOrNull(name: String): String? = if (isNull(name)) null else optString(name)
+    private fun JSONObject.optIntOrNull(name: String): Int? = if (!has(name) || isNull(name)) null else optInt(name)
+
+    private fun JSONObject.optStringOrNull(name: String): String? = if (!has(name) || isNull(name)) null else optString(name)
 }

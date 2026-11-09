@@ -336,7 +336,18 @@ class MediaRepository @Inject constructor(
     /** Merges an exported file into the watchlist; returns how many titles were imported. */
     suspend fun importWatchlistJson(json: String): Int {
         val items = WatchlistBackup.fromJson(json)
-        items.forEach { watchlistDao.upsert(it) }
+        items.forEach { imported ->
+            // Files from before the bookkeeping fields were exported lack them; keep what this device
+            // already knows so a restore never re-sends a release or season alert.
+            val existing = watchlistDao.getById(imported.tmdbId, imported.mediaType)
+            val merged = if (existing == null) imported else imported.copy(
+                lastKnownReleaseStatus = existing.lastKnownReleaseStatus,
+                releaseNotificationSent = existing.releaseNotificationSent || imported.releaseNotificationSent,
+                lastAnnouncedSeason = maxOfNullable(existing.lastAnnouncedSeason, imported.lastAnnouncedSeason),
+                lastReleasedSeason = maxOfNullable(existing.lastReleasedSeason, imported.lastReleasedSeason)
+            )
+            watchlistDao.upsert(merged)
+        }
         return items.size
     }
 
@@ -587,6 +598,8 @@ data class ReleaseAlerts(
                 "season:${item.key}:${item.nextSeasonNumber}:$phase"
             }
 }
+
+private fun maxOfNullable(a: Int?, b: Int?): Int? = if (a == null) b else if (b == null) a else maxOf(a, b)
 
 /** TMDB often lists no episode length for series; assume a typical ~45 min hour-long episode. */
 private const val DEFAULT_EPISODE_MINUTES = 45
