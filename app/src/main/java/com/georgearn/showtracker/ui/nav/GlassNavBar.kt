@@ -38,10 +38,9 @@ internal val GlassNavBarMargin = 12.dp
 /**
  * Frosted glass: a much heavier blur than Vitro's default Regular (which stays see-through like
  * iOS), plus a light dimming layer so labels stay legible over busy posters.
- * interactive() matters for hit-testing: non-interactive Vitro glass shares pointer input with
- * its siblings, so taps on the bar would also land on the list scrolling underneath it.
+ * Not interactive(): Vitro's interactive glass swells and wobbles on every touch.
  */
-private val FrostedGlass = Glass.Regular.copy(blurRadius = 18.dp, saturation = 1.3f, dimming = 0.12f).interactive()
+private val FrostedGlass = Glass.Regular.copy(blurRadius = 18.dp, saturation = 1.3f, dimming = 0.12f)
 
 /** Floating capsule nav bar drawn in frosted glass over [backdrop]. */
 @Composable
@@ -53,11 +52,19 @@ internal fun GlassNavBar(
     modifier: Modifier = Modifier
 ) {
     val glassState = rememberGlassEffectState()
-    Row(
+    // Non-interactive Vitro glass shares pointer input with its *siblings*, and Compose decides
+    // that per layout node. So the glass lives on its own background layer inside this Box: it can
+    // only share with the item Row next to it, while the Box itself (no shared input) stops taps
+    // from reaching the screen content underneath the bar.
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(GlassNavBarHeight)
-            .glassEffect(backdrop, FrostedGlass, CircleShape, state = glassState)
+    ) {
+    Box(Modifier.matchParentSize().glassEffect(backdrop, FrostedGlass, CircleShape, state = glassState))
+    Row(
+        modifier = Modifier
+            .matchParentSize()
             .padding(horizontal = 6.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
@@ -98,5 +105,6 @@ internal fun GlassNavBar(
                 }
             }
         }
+    }
     }
 }

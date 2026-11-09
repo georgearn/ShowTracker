@@ -146,7 +146,7 @@ fun DetailsScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DetailsTopBar(
+internal fun DetailsTopBar(
     title: String?,
     overImage: Boolean,
     onBack: () -> Unit,
@@ -165,7 +165,7 @@ private fun DetailsTopBar(
         IconButtonDefaults.iconButtonColors()
     }
     val glass = if (overImage && backdrop != null) {
-        Modifier.glassEffect(backdrop, Glass.Regular.copy(blurRadius = 12.dp, dimming = 0.2f).interactive(), CircleShape)
+        Modifier.glassEffect(backdrop, Glass.Regular.copy(blurRadius = 12.dp, dimming = 0.2f), CircleShape)
     } else {
         Modifier
     }
