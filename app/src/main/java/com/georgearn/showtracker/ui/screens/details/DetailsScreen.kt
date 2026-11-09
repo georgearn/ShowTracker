@@ -642,7 +642,8 @@ private fun RecommendationCard(item: MediaSummary, onClick: () -> Unit) {
             style = MaterialTheme.typography.labelMedium,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp, bottom = 2.dp)
+            // Inset from the card's rounded bottom corners, which would otherwise clip the first and last letters.
+            modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 8.dp, bottom = 6.dp)
         )
     }
 }
