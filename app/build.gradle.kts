@@ -20,7 +20,7 @@ android {
 
     defaultConfig {
         applicationId = "com.georgearn.showtracker"
-        minSdk = 31 // Android 12 (required floor for Monet/dynamic color anyway)
+        minSdk = 33 // Android 13
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"

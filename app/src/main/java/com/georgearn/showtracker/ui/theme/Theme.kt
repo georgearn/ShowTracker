@@ -1,6 +1,5 @@
 package com.georgearn.showtracker.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -65,10 +64,9 @@ fun ShowTrackerTheme(
     }
 
     val context = LocalContext.current
-    // Dynamic color (Material You / Monet) requires Android 12 (API 31) - our minSdk floor,
-    // so no legacy fallback path is needed at runtime, only the user-facing on/off toggle.
+    // Dynamic color needs Android 12; minSdk is 13, so only the user-facing toggle matters.
     val colorScheme = when {
-        dynamicColorEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
+        dynamicColorEnabled ->
             if (useDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         useDark -> FallbackDark
         else -> FallbackLight
