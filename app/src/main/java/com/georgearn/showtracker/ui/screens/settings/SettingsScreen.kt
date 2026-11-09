@@ -1,5 +1,7 @@
 package com.georgearn.showtracker.ui.screens.settings
 
+import com.georgearn.showtracker.ui.screens.common.BezelCard
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import com.georgearn.showtracker.ui.screens.common.SubTopBar
@@ -487,15 +489,11 @@ private fun SettingsSection(
     Column(modifier) {
         Text(
             text = title.uppercase(),
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.6.sp),
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
         )
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
-        ) {
+        BezelCard(Modifier.fillMaxWidth()) {
             content()
         }
     }

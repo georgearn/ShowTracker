@@ -88,10 +88,13 @@ fun PosterOverlayCard(
     onOverlayClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Column(
         modifier = modifier
+            .fadeUpOnAppear()
+            .pressScale(interaction)
             .clip(MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick)
+            .clickable(interactionSource = interaction, indication = ripple(), onClick = onClick)
     ) {
         Box(modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f)) {
             PosterImage(item.posterPath, contentDescription = null, modifier = Modifier.fillMaxSize())

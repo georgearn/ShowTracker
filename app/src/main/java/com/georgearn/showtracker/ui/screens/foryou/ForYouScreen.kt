@@ -1,5 +1,12 @@
 package com.georgearn.showtracker.ui.screens.foryou
 
+import com.georgearn.showtracker.ui.screens.common.BezelCard
+import com.georgearn.showtracker.ui.screens.common.fadeUpOnAppear
+import com.georgearn.showtracker.ui.screens.common.pressScale
+import com.georgearn.showtracker.ui.screens.common.softSpring
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.runtime.mutableFloatStateOf
@@ -119,11 +126,7 @@ private fun IntroStage(viewModel: ForYouViewModel, onOpenAiPicks: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
-        ) {
+        BezelCard(Modifier.fillMaxWidth().fadeUpOnAppear()) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -182,11 +185,15 @@ private fun IntroStage(viewModel: ForYouViewModel, onOpenAiPicks: () -> Unit) {
         }
 
         // Second path: look beyond the saved list. Lives here (not in the bottom bar) so the nav stays at four items.
+        val aiPicksPress = remember { MutableInteractionSource() }
         Card(
             onClick = onOpenAiPicks,
+            interactionSource = aiPicksPress,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp),
+                .padding(top = 16.dp)
+                .fadeUpOnAppear()
+                .pressScale(aiPicksPress),
             shape = MaterialTheme.shapes.large,
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
         ) {
@@ -243,12 +250,7 @@ private fun QuizStepStage(state: ForYouState, viewModel: ForYouViewModel) {
                 .clip(CircleShape)
         )
 
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
-        ) {
+        BezelCard(Modifier.fillMaxWidth().padding(top = 8.dp)) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -426,13 +428,12 @@ private fun SwipeStage(
 private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
     val isUpcoming = DateUtils.releaseStatus(item.releaseDate) == ReleaseStatus.UPCOMING
     val genres = item.genres.split(",").map { it.trim() }.filter { it.isNotBlank() }.take(3)
-    Card(
+    BezelCard(
         modifier = modifier
             .widthIn(max = 360.dp)
-            .fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            .fillMaxWidth()
+            .shadow(24.dp, RoundedCornerShape(28.dp), ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+        innerColor = MaterialTheme.colorScheme.surfaceContainerHigh
     ) {
         Column {
             Box {
@@ -474,9 +475,12 @@ private fun RecCard(item: WatchlistEntity, modifier: Modifier = Modifier) {
 
 @Composable
 private fun RoundActionButton(icon: ImageVector, label: String, primary: Boolean = false, onClick: () -> Unit) {
+    val press = remember { MutableInteractionSource() }
     IconButton(
         onClick = onClick,
+        interactionSource = press,
         modifier = Modifier
+            .pressScale(press, pressed = 0.9f)
             .size(56.dp)
             .clip(CircleShape)
             .background(if (primary) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
@@ -527,11 +531,11 @@ private fun SwipeableRecCard(
                                 if (abs(x) > threshold) {
                                     fling(x > 0)
                                 } else {
-                                    offsetX.animateTo(0f, spring())
+                                    offsetX.animateTo(0f, softSpring())
                                 }
                             }
                         },
-                        onDragCancel = { scope.launch { offsetX.animateTo(0f, spring()) } },
+                        onDragCancel = { scope.launch { offsetX.animateTo(0f, softSpring()) } },
                         onHorizontalDrag = { change, dragAmount ->
                             change.consume()
                             scope.launch { offsetX.snapTo(offsetX.value + dragAmount) }

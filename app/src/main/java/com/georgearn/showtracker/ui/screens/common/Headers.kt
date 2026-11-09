@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.common
 
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
@@ -102,9 +103,9 @@ fun SectionHeader(title: String, modifier: Modifier = Modifier, onSeeAll: (() ->
 @Composable
 fun GroupHeader(title: String, modifier: Modifier = Modifier) {
     Text(
-        text = title,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        text = title.uppercase(),
+        style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 1.6.sp),
+        color = MaterialTheme.colorScheme.primary,
         modifier = modifier
             .padding(top = 8.dp)
             .semantics { heading() }

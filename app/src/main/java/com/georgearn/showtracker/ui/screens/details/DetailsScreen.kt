@@ -1,5 +1,7 @@
 package com.georgearn.showtracker.ui.screens.details
 
+import com.georgearn.showtracker.ui.screens.common.BezelCard
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.shadow
 import io.github.itshedimisawi.vitro.Glass
 import io.github.itshedimisawi.vitro.GlassBackdrop
@@ -450,11 +452,10 @@ private fun SeasonAlertCard(
         nextSeason != null -> "Season $nextSeason is coming, date TBA"
         else -> "No new season dated yet"
     }
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+    BezelCard(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardDefaults.shape)
+            .clip(RoundedCornerShape(28.dp))
             .toggleable(value = following, role = Role.Switch, onValueChange = onToggle)
     ) {
         Row(
