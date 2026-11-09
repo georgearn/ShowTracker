@@ -38,8 +38,10 @@ internal val GlassNavBarMargin = 12.dp
 /**
  * Frosted glass: a much heavier blur than Vitro's default Regular (which stays see-through like
  * iOS), plus a light dimming layer so labels stay legible over busy posters.
+ * interactive() matters for hit-testing: non-interactive Vitro glass shares pointer input with
+ * its siblings, so taps on the bar would also land on the list scrolling underneath it.
  */
-private val FrostedGlass = Glass.Regular.copy(blurRadius = 18.dp, saturation = 1.3f, dimming = 0.12f)
+private val FrostedGlass = Glass.Regular.copy(blurRadius = 18.dp, saturation = 1.3f, dimming = 0.12f).interactive()
 
 /** Floating capsule nav bar drawn in frosted glass over [backdrop]. */
 @Composable

@@ -165,7 +165,7 @@ private fun DetailsTopBar(
         IconButtonDefaults.iconButtonColors()
     }
     val glass = if (overImage && backdrop != null) {
-        Modifier.glassEffect(backdrop, Glass.Regular.copy(blurRadius = 12.dp, dimming = 0.2f), CircleShape)
+        Modifier.glassEffect(backdrop, Glass.Regular.copy(blurRadius = 12.dp, dimming = 0.2f).interactive(), CircleShape)
     } else {
         Modifier
     }
