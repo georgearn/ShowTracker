@@ -1,5 +1,9 @@
 package com.georgearn.showtracker.ui.screens.common
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Row
@@ -38,6 +42,36 @@ fun RootTopBar(
                     )
                 }
             }
+        },
+        actions = actions,
+        windowInsets = WindowInsets(0, 0, 0, 0)
+    )
+}
+
+/** Top bar for pushed (non-tab) screens: back arrow, title, optional subtitle and actions. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SubTopBar(
+    title: String,
+    onBack: () -> Unit,
+    subtitle: String? = null,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    TopAppBar(
+        title = {
+            Column {
+                Text(title)
+                if (subtitle != null) {
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
         },
         actions = actions,
         windowInsets = WindowInsets(0, 0, 0, 0)

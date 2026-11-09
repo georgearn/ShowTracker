@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.notifications
 
+import com.georgearn.showtracker.ui.screens.common.SubTopBar
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,13 +62,7 @@ fun NotificationsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Notifications") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                },
-                windowInsets = WindowInsets(0, 0, 0, 0)
-            )
+            SubTopBar(title = "Notifications", onBack = onBack)
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->

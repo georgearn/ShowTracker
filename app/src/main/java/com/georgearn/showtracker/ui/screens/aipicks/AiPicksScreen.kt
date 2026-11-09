@@ -1,5 +1,6 @@
 package com.georgearn.showtracker.ui.screens.aipicks
 
+import com.georgearn.showtracker.ui.screens.common.SubTopBar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -84,26 +85,15 @@ fun AiPicksScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("AI Picks")
-                        Text(
-                            "Beyond your list, powered by Gemini",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                },
+            SubTopBar(
+                title = "AI Picks",
+                subtitle = "Beyond your list, powered by Gemini",
+                onBack = onBack,
                 actions = {
                     if (hasKey == true) {
                         IconButton(onClick = onOpenSettings) { Icon(Icons.Default.Key, contentDescription = "Manage API key") }
                     }
-                },
-                windowInsets = WindowInsets(0, 0, 0, 0)
+                }
             )
         }
     ) { padding ->

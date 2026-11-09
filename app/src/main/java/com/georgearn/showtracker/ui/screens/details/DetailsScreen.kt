@@ -1,8 +1,15 @@
 package com.georgearn.showtracker.ui.screens.details
 
+import androidx.compose.ui.draw.shadow
+import io.github.itshedimisawi.vitro.Glass
+import io.github.itshedimisawi.vitro.GlassBackdrop
+import io.github.itshedimisawi.vitro.glassEffect
+import io.github.itshedimisawi.vitro.glassBackdrop
+import io.github.itshedimisawi.vitro.rememberGlassBackdrop
 import android.content.Intent
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.outlined.NewReleases
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Switch
@@ -142,33 +149,36 @@ private fun DetailsTopBar(
     overImage: Boolean,
     onBack: () -> Unit,
     onShare: (() -> Unit)?,
+    backdrop: GlassBackdrop? = null,
     modifier: Modifier = Modifier
 ) {
     val container by animateColorAsState(
         if (overImage) Color.Transparent else MaterialTheme.colorScheme.surface,
         label = "topBarContainer"
     )
-    // Over artwork the icons sit on a small scrim so they stay legible on any image.
+    // Over artwork the icons sit on small frosted glass discs so they stay legible on any image.
     val iconColors = if (overImage) {
-        IconButtonDefaults.iconButtonColors(
-            containerColor = MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f),
-            contentColor = Color.White
-        )
+        IconButtonDefaults.iconButtonColors(contentColor = Color.White)
     } else {
         IconButtonDefaults.iconButtonColors()
+    }
+    val glass = if (overImage && backdrop != null) {
+        Modifier.glassEffect(backdrop, Glass.Regular.copy(blurRadius = 12.dp, dimming = 0.2f), CircleShape)
+    } else {
+        Modifier
     }
     TopAppBar(
         title = {
             if (title != null) Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis)
         },
         navigationIcon = {
-            IconButton(onClick = onBack, colors = iconColors) {
+            IconButton(onClick = onBack, colors = iconColors, modifier = glass) {
                 Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
             }
         },
         actions = {
             if (onShare != null) {
-                IconButton(onClick = onShare, colors = iconColors) {
+                IconButton(onClick = onShare, colors = iconColors, modifier = glass) {
                     Icon(Icons.Default.Share, contentDescription = "Share")
                 }
             }
@@ -197,11 +207,14 @@ private fun DetailsContent(
         derivedStateOf { scrollState.value > with(density) { (HeroHeight - 64.dp).toPx() } }
     }
     val tmdbUrl = "https://www.themoviedb.org/${detail.mediaType.apiValue}/${detail.tmdbId}"
+    val backdrop = rememberGlassBackdrop()
 
     Box(Modifier.fillMaxSize()) {
         Column(
             Modifier
                 .fillMaxSize()
+                .glassBackdrop(backdrop)
+                .background(MaterialTheme.colorScheme.background)
                 .verticalScroll(scrollState)
         ) {
             DetailsHero(detail)
@@ -225,7 +238,7 @@ private fun DetailsContent(
                 }
 
                 detail.trailerYoutubeKey?.let { key ->
-                    OutlinedButton(
+                    FilledTonalButton(
                         onClick = { uriHandler.openUri("https://www.youtube.com/watch?v=$key") },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -278,6 +291,7 @@ private fun DetailsContent(
             title = if (collapsed) detail.title else null,
             overImage = !collapsed,
             onBack = onBack,
+            backdrop = backdrop,
             onShare = {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
@@ -295,6 +309,7 @@ private fun DetailsHero(detail: MediaDetail) {
     val backdropHeight = HeroHeight + statusBarTop
     val heroShape = MaterialTheme.shapes.extraLarge.copy(topStart = CornerSize(0.dp), topEnd = CornerSize(0.dp))
     val scrim = MaterialTheme.colorScheme.scrim
+    val page = MaterialTheme.colorScheme.background
 
     Box(Modifier.fillMaxWidth()) {
         PosterImage(
@@ -314,7 +329,8 @@ private fun DetailsHero(detail: MediaDetail) {
                     Brush.verticalGradient(
                         0f to scrim.copy(alpha = 0.35f),
                         0.3f to Color.Transparent,
-                        1f to scrim.copy(alpha = 0.55f)
+                        0.7f to page.copy(alpha = 0.4f),
+                        1f to page
                     ),
                     heroShape
                 )
@@ -326,12 +342,14 @@ private fun DetailsHero(detail: MediaDetail) {
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, top = backdropHeight - 56.dp)
         ) {
-            ElevatedCard(
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.size(width = 108.dp, height = 162.dp)
-            ) {
-                PosterImage(detail.posterPath, contentDescription = null, shape = RectangleShape, modifier = Modifier.fillMaxSize())
-            }
+            PosterImage(
+                detail.posterPath,
+                contentDescription = null,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier
+                    .size(width = 108.dp, height = 162.dp)
+                    .shadow(16.dp, MaterialTheme.shapes.medium, ambientColor = scrim, spotColor = scrim)
+            )
             Column(
                 Modifier
                     .weight(1f)
@@ -379,7 +397,7 @@ private fun DetailsActions(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 20.dp),
+            .padding(top = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -432,10 +450,11 @@ private fun SeasonAlertCard(
         nextSeason != null -> "Season $nextSeason is coming, date TBA"
         else -> "No new season dated yet"
     }
-    OutlinedCard(
+    Card(
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         modifier = modifier
             .fillMaxWidth()
-            .clip(CardDefaults.outlinedShape)
+            .clip(CardDefaults.shape)
             .toggleable(value = following, role = Role.Switch, onValueChange = onToggle)
     ) {
         Row(

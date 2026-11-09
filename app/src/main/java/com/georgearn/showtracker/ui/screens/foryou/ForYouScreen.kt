@@ -1,5 +1,10 @@
 package com.georgearn.showtracker.ui.screens.foryou
 
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.setValue
 import com.georgearn.showtracker.ui.screens.common.LocalNavBarInset
 import com.georgearn.showtracker.ui.screens.common.RootTopBar
 import com.georgearn.showtracker.ui.screens.common.Pill
@@ -63,7 +68,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -164,7 +169,7 @@ private fun IntroStage(viewModel: ForYouViewModel, onOpenAiPicks: () -> Unit) {
                     Text("Take Quick Quiz")
                 }
 
-                OutlinedButton(
+                FilledTonalButton(
                     onClick = viewModel::startFullyRandom,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -245,7 +250,7 @@ private fun QuizStepStage(state: ForYouState, viewModel: ForYouViewModel) {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
+                modifier = Modifier.padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 when (state.quizStep) {
@@ -394,22 +399,23 @@ private fun SwipeStage(
                     item = current,
                     onDecide = viewModel::decide,
                     onOpen = { onOpenDetail(current.tmdbId, current.mediaType) }
-                )
-                Text(
-                    "Swipe right to keep, left to skip",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    RoundActionButton(Icons.Default.Close, label = "Skip", onClick = { viewModel.decide(false) })
-                    RoundActionButton(Icons.Default.Check, label = "Keep", primary = true, onClick = { viewModel.decide(true) })
+                ) { fling ->
+                    Text(
+                        "Swipe right to keep, left to skip",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        RoundActionButton(Icons.Default.Close, label = "Skip", onClick = { fling(false) })
+                        RoundActionButton(Icons.Default.Check, label = "Keep", primary = true, onClick = { fling(true) })
+                    }
                 }
             }
             else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("You're all caught up. Reshuffle for more picks from your watchlist.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(onClick = viewModel::reshuffle) { Text("Reshuffle") }
-                    OutlinedButton(onClick = viewModel::resetToIntro) { Text("Start Over") }
+                    FilledTonalButton(onClick = viewModel::resetToIntro) { Text("Start over") }
                 }
             }
         }
@@ -484,17 +490,34 @@ private fun RoundActionButton(icon: ImageVector, label: String, primary: Boolean
  * Tapping opens the detail page. The buttons below stay as the non-gesture alternative.
  */
 @Composable
-private fun SwipeableRecCard(item: WatchlistEntity, onDecide: (Boolean) -> Unit, onOpen: () -> Unit) {
+private fun SwipeableRecCard(
+    item: WatchlistEntity,
+    onDecide: (Boolean) -> Unit,
+    onOpen: () -> Unit,
+    controls: @Composable (fling: (keep: Boolean) -> Unit) -> Unit
+) {
     val offsetX = remember(item.key) { Animatable(0f) }
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     val threshold = with(LocalDensity.current) { 120.dp.toPx() }
-    Box(contentAlignment = Alignment.TopCenter) {
+    var cardWidth by remember { mutableFloatStateOf(1f) }
+    // Same exit for swipes and buttons: a firm tick on Keep, a light one on Skip, then the card flies off.
+    val fling: (Boolean) -> Unit = { keep ->
+        haptics.performHapticFeedback(if (keep) HapticFeedbackType.Confirm else HapticFeedbackType.TextHandleMove)
+        scope.launch {
+            offsetX.animateTo((if (keep) 1f else -1f) * cardWidth * 1.5f, tween(durationMillis = 220))
+            onDecide(keep)
+        }
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Box(contentAlignment = Alignment.TopCenter, modifier = Modifier.onSizeChanged { cardWidth = it.width.toFloat() }) {
         RecCard(
             item,
             Modifier
                 .graphicsLayer {
                     translationX = offsetX.value
                     rotationZ = offsetX.value / 40f
+                    alpha = 1f - (abs(offsetX.value) / (cardWidth * 1.5f)).coerceIn(0f, 0.6f)
                 }
                 .pointerInput(item.key) {
                     detectHorizontalDragGestures(
@@ -502,8 +525,7 @@ private fun SwipeableRecCard(item: WatchlistEntity, onDecide: (Boolean) -> Unit,
                             scope.launch {
                                 val x = offsetX.value
                                 if (abs(x) > threshold) {
-                                    offsetX.animateTo(sign(x) * size.width * 1.5f, tween(durationMillis = 200))
-                                    onDecide(x > 0)
+                                    fling(x > 0)
                                 } else {
                                     offsetX.animateTo(0f, spring())
                                 }
@@ -535,5 +557,7 @@ private fun SwipeableRecCard(item: WatchlistEntity, onDecide: (Boolean) -> Unit,
                     .padding(horizontal = 16.dp, vertical = 6.dp)
             )
         }
+    }
+    controls(fling)
     }
 }

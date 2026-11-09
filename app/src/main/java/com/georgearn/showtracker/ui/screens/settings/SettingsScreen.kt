@@ -1,5 +1,8 @@
 package com.georgearn.showtracker.ui.screens.settings
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import com.georgearn.showtracker.ui.screens.common.SubTopBar
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.filled.Download
@@ -43,7 +46,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -96,21 +99,15 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            TopAppBar(
-                title = { Text("Settings") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                },
-                windowInsets = WindowInsets(0, 0, 0, 0)
-            )
+            SubTopBar(title = "Settings", onBack = onBack)
         }
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(padding)
-                .padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             item {
                 Column(Modifier.padding(top = 12.dp)) {
@@ -150,7 +147,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                                 }
                             }
                         }
-                        HorizontalDivider()
+                        Spacer(Modifier.height(8.dp))
                         ListItem(
                             headlineContent = { Text("Wallpaper colors (Monet)") },
                             supportingContent = { Text("Matches accent colors to your wallpaper · Android 12+") },
@@ -164,7 +161,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                         )
                     }
 
-                    SettingsSection(title = "Region", modifier = Modifier.padding(top = 20.dp)) {
+                    SettingsSection(title = "Region", modifier = Modifier.padding(top = 24.dp)) {
                         ListItem(
                             headlineContent = { Text("Streaming region") },
                             supportingContent = { Text("Used to pick which services show under \"Where to watch\"") },
@@ -185,7 +182,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                         )
                     }
 
-                    SettingsSection(title = "Preferred Genres", modifier = Modifier.padding(top = 20.dp)) {
+                    SettingsSection(title = "Preferred Genres", modifier = Modifier.padding(top = 24.dp)) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text(
                                 if (preferredGenreIds.isEmpty()) {
@@ -197,7 +194,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             if (preferredGenreIds.isNotEmpty()) {
-                                OutlinedButton(
+                                FilledTonalButton(
                                     onClick = viewModel::clearGenrePreference,
                                     modifier = Modifier.padding(top = 8.dp)
                                 ) { Text("Clear genre filter") }
@@ -212,7 +209,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                         }
                     }
 
-                    SettingsSection(title = "Feed quality", modifier = Modifier.padding(top = 20.dp)) {
+                    SettingsSection(title = "Feed quality", modifier = Modifier.padding(top = 24.dp)) {
                         Text(
                             "Applies to Home, Just Dropped, Releasing Soon, trending and \"More like this\". Search always shows everything.",
                             style = MaterialTheme.typography.bodyMedium,
@@ -237,7 +234,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                             checked = feedQuality.popularUpcomingOnly,
                             onCheckedChange = viewModel::setPopularUpcomingOnly
                         )
-                        HorizontalDivider()
+                        Spacer(Modifier.height(8.dp))
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text("Always hide these genres", style = MaterialTheme.typography.titleSmall)
                             Text(
@@ -255,7 +252,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                         }
                     }
 
-                    SettingsSection(title = "Releasing Soon lookahead", modifier = Modifier.padding(top = 20.dp)) {
+                    SettingsSection(title = "Releasing Soon lookahead", modifier = Modifier.padding(top = 24.dp)) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text(
                                 "How many pages of upcoming titles to fetch per type (movies/series), ~20 titles per page. " +
@@ -283,7 +280,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                         }
                     }
 
-                    SettingsSection(title = "Content Filters", modifier = Modifier.padding(top = 20.dp)) {
+                    SettingsSection(title = "Content Filters", modifier = Modifier.padding(top = 24.dp)) {
                         Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                             Text(
                                 "Hide titles originating from selected countries, across Home, Discover and search. " +
@@ -379,7 +376,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
             item {
                 var keyInput by remember { mutableStateOf("") }
                 var keyVisible by remember { mutableStateOf(false) }
-                SettingsSection(title = "AI recommendations", modifier = Modifier.padding(top = 20.dp)) {
+                SettingsSection(title = "AI recommendations", modifier = Modifier.padding(top = 24.dp)) {
                     ListItem(
                         headlineContent = { Text("Gemini API key") },
                         supportingContent = {
@@ -424,7 +421,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
                             enabled = keyInput.isNotBlank()
                         ) { Text("Save key") }
                         if (geminiKeyHint != null) {
-                            OutlinedButton(onClick = viewModel::clearGeminiKey) { Text("Remove") }
+                            FilledTonalButton(onClick = viewModel::clearGeminiKey) { Text("Remove") }
                         }
                     }
                     Text(
@@ -437,7 +434,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
             }
 
             item {
-                SettingsSection(title = "Backup", modifier = Modifier.padding(top = 20.dp)) {
+                SettingsSection(title = "Backup", modifier = Modifier.padding(top = 24.dp)) {
                     ListItem(
                         headlineContent = { Text("Export watchlist") },
                         supportingContent = { Text("Save your list and history to a file") },
@@ -456,7 +453,7 @@ fun SettingsScreen(onBack: () -> Unit = {}, viewModel: SettingsViewModel = hiltV
             }
 
             item {
-                SettingsSection(title = "About", modifier = Modifier.padding(top = 20.dp, bottom = 32.dp)) {
+                SettingsSection(title = "About", modifier = Modifier.padding(top = 24.dp, bottom = 32.dp)) {
                     ListItem(
                         headlineContent = { Text("Show Tracker") },
                         supportingContent = { Text("Version 1.0") },
@@ -497,7 +494,7 @@ private fun SettingsSection(
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
         ) {
             content()
         }

@@ -1,5 +1,8 @@
 package com.georgearn.showtracker.ui.theme
 
+import androidx.compose.material3.Shapes
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -44,10 +47,24 @@ private val FallbackDark = darkColorScheme(
     onTertiary = androidx.compose.ui.graphics.Color(0xFF492532),
     tertiaryContainer = androidx.compose.ui.graphics.Color(0xFF633B48),
     onTertiaryContainer = androidx.compose.ui.graphics.Color(0xFFFFD8E4),
-    surface = androidx.compose.ui.graphics.Color(0xFF141218),
+    // Faint blue cast instead of flat near-black, to match the icon and the glass nav bar.
+    background = androidx.compose.ui.graphics.Color(0xFF0F131A),
+    surface = androidx.compose.ui.graphics.Color(0xFF0F131A),
+    surfaceContainerLow = androidx.compose.ui.graphics.Color(0xFF151A23),
+    surfaceContainer = androidx.compose.ui.graphics.Color(0xFF1A202A),
+    surfaceContainerHigh = androidx.compose.ui.graphics.Color(0xFF212833),
     onSurface = androidx.compose.ui.graphics.Color(0xFFE6E0E9),
     surfaceVariant = androidx.compose.ui.graphics.Color(0xFF49454F),
     onSurfaceVariant = androidx.compose.ui.graphics.Color(0xFFCAC4D0)
+)
+
+/** One corner scale: small for posters/chips, large for cards, extraLarge for hero surfaces. */
+private val ShowTrackerShapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(28.dp)
 )
 
 @Composable
@@ -75,6 +92,7 @@ fun ShowTrackerTheme(
     MaterialTheme(
         colorScheme = colorScheme,
         typography = ShowTrackerTypography,
+        shapes = ShowTrackerShapes,
         content = content
     )
 }
