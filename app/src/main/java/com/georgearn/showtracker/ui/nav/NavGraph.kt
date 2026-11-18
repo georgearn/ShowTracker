@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -165,6 +166,8 @@ fun ShowTrackerNavHost(
         }
     ) { padding ->
         // Details draws its backdrop under the status bar, so the top inset is applied per screen.
+        // Entry lambdas are built once per tab, so they read the inset through State, not a captured value.
+        val topInset = rememberUpdatedState(padding.calculateTopPadding())
         val belowStatusBar = Modifier.padding(top = padding.calculateTopPadding())
         if (onboarding) {
             Box(belowStatusBar.padding(bottom = padding.calculateBottomPadding())) {
@@ -187,7 +190,7 @@ fun ShowTrackerNavHost(
         fun providerFor(tab: Route) = entryProvider<NavKey> {
             val ck: (Any) -> Any = { "$tab/$it" }
             entry<HomeRoute>(clazzContentKey = ck, metadata = listPane) {
-                Box(belowStatusBar) {
+                Box(Modifier.padding(top = topInset.value)) {
                     HomeScreen(
                         onOpenDetail = openDetail,
                         onOpenNotifications = { navigator.navigate(NotificationsRoute) },
@@ -196,18 +199,18 @@ fun ShowTrackerNavHost(
                 }
             }
             entry<DiscoverRoute>(clazzContentKey = ck, metadata = listPane) {
-                Box(belowStatusBar) { DiscoverScreen(onOpenDetail = openDetail) }
+                Box(Modifier.padding(top = topInset.value)) { DiscoverScreen(onOpenDetail = openDetail) }
             }
             entry<WatchlistRoute>(clazzContentKey = ck, metadata = listPane) {
-                Box(belowStatusBar) { WatchlistScreen(onOpenDetail = openDetail) }
+                Box(Modifier.padding(top = topInset.value)) { WatchlistScreen(onOpenDetail = openDetail) }
             }
             entry<ForYouRoute>(clazzContentKey = ck, metadata = listPane) {
-                Box(belowStatusBar) {
+                Box(Modifier.padding(top = topInset.value)) {
                     ForYouScreen(onOpenDetail = openDetail, onOpenAiPicks = { navigator.navigate(AiPicksRoute) })
                 }
             }
             entry<AiPicksRoute>(clazzContentKey = ck, metadata = listPane) {
-                Box(belowStatusBar) {
+                Box(Modifier.padding(top = topInset.value)) {
                     AiPicksScreen(
                         onBack = { navigator.goBack() },
                         onOpenSettings = { navigator.navigate(SettingsRoute) },
@@ -216,12 +219,12 @@ fun ShowTrackerNavHost(
                 }
             }
             entry<NotificationsRoute>(clazzContentKey = ck, metadata = listPane) {
-                Box(belowStatusBar) {
+                Box(Modifier.padding(top = topInset.value)) {
                     NotificationsScreen(onBack = { navigator.goBack() }, onOpenDetail = openDetail)
                 }
             }
             entry<SettingsRoute>(clazzContentKey = ck) {
-                Box(belowStatusBar) { SettingsScreen(onBack = { navigator.goBack() }) }
+                Box(Modifier.padding(top = topInset.value)) { SettingsScreen(onBack = { navigator.goBack() }) }
             }
             entry<DetailsRoute>(clazzContentKey = ck, metadata = ListDetailSceneStrategy.detailPane()) { key ->
                 DetailsScreen(
