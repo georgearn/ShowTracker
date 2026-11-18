@@ -11,6 +11,8 @@ import com.squareup.moshi.Types
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import com.georgearn.showtracker.data.remote.gemini.GeminiResponse
 import kotlinx.coroutines.flow.first
 import retrofit2.HttpException
 import java.io.IOException
@@ -51,17 +53,8 @@ class AiRecommendationRepository @Inject constructor(
         val saved = watchlistDao.observeAll().first()
         val savedTitles = saved.map { it.title.lowercase() }.toSet()
 
-        val raw = try {
-            gemini.generateContent(MODEL, key, requestBody(prompt(seeds, note, saved.map { it.title })))
-        } catch (e: HttpException) {
-            throw when (e.code()) {
-                400, 401, 403 -> AiException(AiException.Kind.BAD_KEY, "Google rejected the API key. Check it in Settings.")
-                429 -> AiException(AiException.Kind.QUOTA, "Gemini's free quota is used up for now. Try again in a minute.")
-                else -> AiException(AiException.Kind.OTHER, "Gemini returned an error (${e.code()}).")
-            }
-        } catch (e: IOException) {
-            throw AiException(AiException.Kind.NETWORK, "Couldn't reach Gemini. Check your connection.")
-        }
+        val body = requestBody(prompt(seeds, note, saved.map { it.title }))
+        val raw = generateWithFallback(key, body)
 
         val text = raw.candidates?.firstOrNull()?.content?.parts?.mapNotNull { it.text }?.joinToString("").orEmpty()
         val suggestions = runCatching { suggestionsAdapter.fromJson(text) }.getOrNull().orEmpty()
@@ -78,6 +71,39 @@ class AiRecommendationRepository @Inject constructor(
             throw AiException(AiException.Kind.EMPTY, "None of the suggestions were new to you. Try again for a fresh batch.")
         }
         return picks
+    }
+
+    /**
+     * Tries each model in [MODELS] in turn. 503/500/429 are per-model and usually transient
+     * (overloaded or rate-limited), so each model gets a short retry and then we move on.
+     * Key errors fail immediately since every model would reject them.
+     */
+    private suspend fun generateWithFallback(key: String, body: Map<String, Any>): GeminiResponse {
+        var lastCode = 0
+        var quota = false
+        for (model in MODELS) {
+            repeat(2) { attempt ->
+                try {
+                    return gemini.generateContent(model, key, body)
+                } catch (e: HttpException) {
+                    lastCode = e.code()
+                    when (lastCode) {
+                        400, 401, 403 -> throw AiException(AiException.Kind.BAD_KEY, "Google rejected the API key. Check it in Settings.")
+                        404 -> return@repeat // model not offered to this key: skip to the next one
+                        429 -> { quota = true; return@repeat }
+                        500, 502, 503, 504 -> if (attempt == 0) delay(RETRY_DELAY_MS) else Unit
+                        else -> throw AiException(AiException.Kind.OTHER, "Gemini returned an error ($lastCode).")
+                    }
+                } catch (e: IOException) {
+                    throw AiException(AiException.Kind.NETWORK, "Couldn't reach Gemini. Check your connection.")
+                }
+            }
+        }
+        throw if (quota && lastCode == 429) {
+            AiException(AiException.Kind.QUOTA, "Gemini's free quota is used up for now. Try again in a minute.")
+        } else {
+            AiException(AiException.Kind.OTHER, "Gemini is overloaded right now ($lastCode). Please try again in a moment.")
+        }
     }
 
     /** Looks the model's title up on TMDB; the year and movie/series hint pick between same-name results. */
@@ -128,8 +154,9 @@ class AiRecommendationRepository @Inject constructor(
     }
 
     companion object {
-        /** Alias that tracks Google's current Flash model, so the app doesn't pin a retired version. */
-        const val MODEL = "gemini-flash-latest"
+        /** Stable IDs per Google's model list: 3.6 Flash first, then newer Flash, then Flash-Lite as the cheap fallback. */
+        val MODELS = listOf("gemini-3.6-flash", "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite")
+        const val RETRY_DELAY_MS = 1500L
         const val SEED_LIMIT = 25
         const val RESULT_COUNT = 10
     }

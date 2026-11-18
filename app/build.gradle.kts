@@ -94,6 +94,10 @@ android {
     }
 }
 
+ksp {
+    arg("moshi.generateAdapter", "true")
+}
+
 dependencies {
     // Core / Compose
     implementation("androidx.core:core-ktx:1.19.1")
