@@ -47,7 +47,7 @@ private val FrostedGlass = Glass.Regular.copy(blurRadius = 18.dp, saturation = 1
 internal fun GlassNavBar(
     backdrop: GlassBackdrop,
     destinations: List<TopLevelDestination>,
-    currentRoute: String?,
+    currentRoute: Route?,
     onSelect: (TopLevelDestination) -> Unit,
     modifier: Modifier = Modifier
 ) {

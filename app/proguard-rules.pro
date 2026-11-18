@@ -22,3 +22,9 @@
 -dontwarn okhttp3.**
 -dontwarn retrofit2.**
 -dontwarn com.squareup.moshi.**
+
+# Navigation 3 saves back stacks by class name (Class.forName) and finds each key's serializer
+# reflectively, so the route classes and their generated serializers must survive R8.
+-keep class com.georgearn.showtracker.ui.nav.Route { *; }
+-keep class com.georgearn.showtracker.ui.nav.*Route { *; }
+-keep class com.georgearn.showtracker.ui.nav.*Route$* { *; }

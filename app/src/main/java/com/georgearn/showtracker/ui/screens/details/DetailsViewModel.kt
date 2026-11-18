@@ -1,6 +1,5 @@
 package com.georgearn.showtracker.ui.screens.details
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.georgearn.showtracker.data.local.WatchlistEntity
@@ -14,16 +13,24 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import javax.inject.Inject
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 
-@HiltViewModel
-class DetailsViewModel @Inject constructor(
+/** The title comes from the navigation key (Navigation 3 has no route arguments), via assisted injection. */
+@HiltViewModel(assistedFactory = DetailsViewModel.Factory::class)
+class DetailsViewModel @AssistedInject constructor(
     private val repository: MediaRepository,
-    savedStateHandle: SavedStateHandle
+    @Assisted private val tmdbId: Int,
+    @Assisted mediaTypeValue: String
 ) : ViewModel() {
 
-    private val tmdbId: Int = checkNotNull(savedStateHandle["tmdbId"])
-    private val mediaType: MediaType = MediaType.from(checkNotNull(savedStateHandle["mediaType"]))
+    @AssistedFactory
+    interface Factory {
+        fun create(tmdbId: Int, mediaType: String): DetailsViewModel
+    }
+
+    private val mediaType: MediaType = MediaType.from(mediaTypeValue)
 
     private val _state = MutableStateFlow<UiState<MediaDetail>>(UiState.Loading)
     val state: StateFlow<UiState<MediaDetail>> = _state

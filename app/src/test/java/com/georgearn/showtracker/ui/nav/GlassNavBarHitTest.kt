@@ -34,12 +34,12 @@ class GlassNavBarHitTest {
     @get:Rule val rule = createComposeRule()
 
     private val destinations = listOf(
-        TopLevelDestination("a", "Alpha", Icons.Filled.Home, Icons.Filled.Home),
-        TopLevelDestination("b", "Beta", Icons.Filled.Search, Icons.Filled.Search)
+        TopLevelDestination(HomeRoute, "Alpha", Icons.Filled.Home, Icons.Filled.Home),
+        TopLevelDestination(DiscoverRoute, "Beta", Icons.Filled.Search, Icons.Filled.Search)
     )
 
     private var contentClicks = 0
-    private val selected = mutableListOf<String>()
+    private val selected = mutableListOf<Route>()
 
     private fun setUp() {
         rule.setContent {
@@ -51,7 +51,7 @@ class GlassNavBarHitTest {
                     GlassNavBar(
                         backdrop = backdrop,
                         destinations = destinations,
-                        currentRoute = "a",
+                        currentRoute = HomeRoute,
                         onSelect = { selected += it.route },
                         modifier = Modifier.align(Alignment.BottomCenter).padding(horizontal = 20.dp, vertical = 12.dp)
                     )
@@ -65,7 +65,7 @@ class GlassNavBarHitTest {
         setUp()
         rule.onNodeWithText("Beta").performClick()
         rule.waitForIdle()
-        assertEquals(listOf("b"), selected)
+        assertEquals(listOf<Route>(DiscoverRoute), selected)
         assertEquals(0, contentClicks)
     }
 
@@ -87,6 +87,6 @@ class GlassNavBarHitTest {
         rule.onRoot().performTouchInput { click(center) }
         rule.waitForIdle()
         assertEquals(1, contentClicks)
-        assertEquals(emptyList<String>(), selected)
+        assertEquals(emptyList<Route>(), selected)
     }
 }
